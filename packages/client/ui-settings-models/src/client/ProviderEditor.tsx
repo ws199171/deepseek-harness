@@ -31,6 +31,7 @@ import {
   DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels,
 } from './DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from './apiKey.ts'
+import { CliProviderPanel, unavailableCliRemote, type CliDiscoveryRemote } from './CliProviderPanel.tsx'
 import { EditorFooter } from './EditorFooter.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
 import { deriveKeyRef, messageOf, protocolChoices } from './store.ts'
@@ -38,7 +39,7 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
-type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
+type EditorLayout = 'deepseek' | 'pi-ai' | 'cli' | 'unknown'
 
 /** The public DeepSeek endpoint shown as the deepseek base-URL placeholder. */
 const DEEPSEEK_PUBLIC_BASE_URL = 'https://api.deepseek.com'
@@ -75,6 +76,8 @@ export interface ProviderEditorProps {
   credentialRequired?: boolean
   /** Give the credential field initial focus when this editor mounts. */
   autoFocusCredential?: boolean
+  /** The CLI discovery/test Remote face (only the `llm-cli` layout renders it). */
+  cliRemote?: CliDiscoveryRemote
   /** Override the dismiss action copy. */
   cancelLabel?: keyof typeof en
   /** Override the idle commit action copy. */
@@ -125,6 +128,7 @@ export function pathOps(
 function layoutOf(ns: string): EditorLayout {
   if (ns === 'llm-deepseek') return 'deepseek'
   if (ns === 'llm-pi-ai') return 'pi-ai'
+  if (ns === 'llm-cli') return 'cli'
   return 'unknown'
 }
 
@@ -172,6 +176,11 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   )
 
   useEffect(() => {
+    if (layout === 'cli') {
+      // The CLI layout has no credential: the CLI carries its own auth.
+      setKeyState(undefined)
+      return
+    }
     let stale = false
     setKeyState(undefined)
     // The key state is a placeholder hint, not a precondition for editing:
@@ -186,18 +195,18 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       () => undefined,
     )
     return () => { stale = true }
-  }, [api.credentials, keyRef])
+  }, [api.credentials, keyRef, layout])
 
   const stringAt = (source: unknown, key: string): string | undefined => {
     const value = getPath(source, [key])
     return typeof value === 'string' && value.trim().length > 0 ? value : undefined
   }
-  const setField = (key: string, next: string | undefined): void => {
+  const setField = (key: string, next: unknown): void => {
     // A value of nothing but whitespace is cleared, not stored: `stringAt`
     // already reports it as absent, so the field would otherwise render empty
     // while the draft still carried the spaces into `settings.yaml`, where
     // both adapters would accept that non-empty string as a real value.
-    const value = next === undefined || next.trim().length === 0 ? undefined : next
+    const value = next === undefined || (typeof next === 'string' && next.trim().length === 0) ? undefined : next
     setDraft(current => value === undefined ? deletePath(current, [key]) : setPath(current, [key], value))
   }
 
@@ -481,7 +490,24 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
         )}
       {layout === 'unknown'
         ? <p className={styles['advancedHint']}>{`${t('advancedHint')} (${namespace.ns})`}</p>
-        : curatedFields(layout)}
+        : layout === 'cli'
+          ? (
+            <CliProviderPanel
+              cliRemote={props.cliRemote ?? unavailableCliRemote()}
+              command={stringAt(draft, 'command') ?? stringAt(fallback, 'command') ?? ''}
+              models={Array.isArray(draft.models)
+                ? draft.models.filter((model): model is { id: string; name?: string } => typeof model === 'object'
+                  && model !== null && typeof (model as { id?: unknown }).id === 'string')
+                : []}
+              onAdopt={(candidate) => {
+                setField('command', candidate.path ?? candidate.commands[0])
+                setField('models', candidate.models)
+              }}
+              disabled={disabled}
+              t={t}
+            />
+          )
+          : curatedFields(layout)}
       {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
       {props.credentialOnly === true || modelFailure === undefined
         ? null

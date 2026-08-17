@@ -838,6 +838,56 @@ export interface Config {
 
 来源：[`packages/jobs/jobs-local/src/index.ts:31`](../packages/jobs/jobs-local/src/index.ts)
 
+<a id="deepseek-aidsh-llm-cli"></a>
+
+## `@deepseek-ai/dsh-llm-cli`
+
+需要：`llm` · `subprocess` · `sessions`
+
+```ts config-catalog
+/**
+ * Plugin config, validated by the same-named schemastery schema and doubling
+ * as the `llm-cli` settings-section shape. Every field is optional in yml:
+ * a missing command falls back to `codebuddy`, and an empty settings section
+ * still registers the route with the defaults.
+ */
+export interface Config {
+  /** CLI executable name (default `codebuddy`); a bare name resolves on PATH. */
+  command?: string
+  /** Arguments appended before any per-request session arguments. */
+  args?: string[]
+  /** Provider route id this plugin registers (default `codebuddy-cli`). A registration-time fact. */
+  provider?: string
+  /** Human-readable provider name for selectors (default `CodeBuddy CLI`). */
+  displayName?: string
+  /** Model ids discovered from CodeBuddy or entered by the deployment. */
+  models?: CliCatalogModel[]
+  /** Child working directory; when absent, persistent sessions use their selected workspace. */
+  cwd?: string
+  /** Explicit environment entries layered over the subprocess seam's base. */
+  env?: Record<string, string>
+  /** Argument carrying the persistent session id (default `--session-id`). */
+  sessionIdArg?: string
+  /** CodeBuddy tool-approval policy (default `bypassPermissions` for non-interactive runs). */
+  permissionMode?: CodeBuddyPermissionMode
+  /** Grace in milliseconds for child process-tree termination. */
+  disposeGraceMs?: number
+}
+
+/** One optional model entry advertised by the CLI adapter. */
+export interface CliCatalogModel {
+  /** Model id accepted by {@link GenerateOptions.model} for this route. */
+  id: string
+  /** Selector label; defaults to {@link id}. */
+  name?: string
+}
+
+/** CodeBuddy's policy for approving tools inside its delegated agent loop. */
+export type CodeBuddyPermissionMode = typeof CODEBUDDY_PERMISSION_MODES[number]
+```
+
+来源：[`packages/llm/llm-cli/src/index.ts:76`](../packages/llm/llm-cli/src/index.ts)
+
 <a id="deepseek-aidsh-llm-deepseek"></a>
 
 ## `@deepseek-ai/dsh-llm-deepseek`

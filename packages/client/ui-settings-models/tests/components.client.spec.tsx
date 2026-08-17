@@ -9,6 +9,7 @@ import {
   ModelsSection, needsSetup, providerCopy, providerTargetLabel, removeProviderProfile,
 } from '../src/client/ModelsSection.tsx'
 import type { ModelsSectionInjected, ModelsSectionProps } from '../src/client/ModelsSection.tsx'
+import { CliProviderPanel } from '../src/client/CliProviderPanel.tsx'
 import { pathOps } from '../src/client/ProviderEditor.tsx'
 import {
   DeepSeekModelsEditor, formatCapacity, modelDrafts, parseCapacity, validateDeepSeekModels,
@@ -191,6 +192,10 @@ async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
     api: face as never,
+    cliRemote: {
+      discover: async () => ({ ok: false, error: { code: 'test', message: 'unmounted', details: {} } }),
+      test: async () => ({ ok: false, error: { code: 'test', message: 'unmounted', details: {} } }),
+    },
     t,
   }
   const view = render(<ModelsSection {...injected} />)
@@ -226,6 +231,41 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 }
 
 describe('ModelsSection', () => {
+  it('shows the discovered CLI models and adopts their catalog', async () => {
+    const onAdopt = vi.fn()
+    render(<CliProviderPanel
+      cliRemote={{
+        discover: async () => ({
+          ok: true,
+          value: {
+            entries: [{
+              id: 'codebuddy',
+              displayName: 'CodeBuddy CLI',
+              presence: 'present',
+              commands: ['codebuddy'],
+              path: '/usr/local/bin/codebuddy',
+              models: [{ id: 'gpt-5.6-sol' }, { id: 'claude-sonnet-5' }],
+              health: 'unknown',
+            }],
+          },
+        }),
+        test: async () => ({ ok: true, value: { ok: true, message: 'healthy' } }),
+      }}
+      command="codebuddy"
+      models={[]}
+      onAdopt={onAdopt}
+      disabled={false}
+      t={t}
+    />)
+
+    fireEvent.click(screen.getByRole('button', { name: en.cliDetect }))
+    expect(await screen.findByText(`${en.cliModels}: gpt-5.6-sol, claude-sonnet-5`)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.cliAdopt }))
+    expect(onAdopt).toHaveBeenCalledWith(expect.objectContaining({
+      models: [{ id: 'gpt-5.6-sol' }, { id: 'claude-sonnet-5' }],
+    }))
+  })
+
   it('renders nothing before the slot injects its dependencies', () => {
     const uninjected = {} as ModelsSectionProps
     render(<ModelsSection {...uninjected} />)

@@ -1,10 +1,10 @@
 /** Models section registration: slot declaration injection, the locale-following label thunk, and HMR recovery. */
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
+import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject, refreshIfLoaded } from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { ModelsSection } from '../src/client/ModelsSection.tsx'
 import { DeepSeekOnboardingDialog } from '../src/client/DeepSeekOnboardingDialog.tsx'
@@ -20,8 +20,32 @@ async function bench(isLoopback = true) {
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)
   // The plugins inject `remote`; forwarded events reach them through the
-  // same `$dispatch` handoff the connection sink makes.
-  new TestRemote(ctx)
+  // same `$dispatch` handoff the connection sink makes. The `remote` service
+  // must be a cordis `Service` instance for dotted namespace services
+  // (`remote.llm-cli-discovery`) to resolve through it.
+  class RemoteService extends Service {
+    private readonly subscriptions = new Map<string, Set<(...args: never[]) => void>>()
+    constructor(serviceCtx: Context) {
+      super(serviceCtx, 'remote')
+    }
+    $dispatch = (event: string, args: readonly unknown[]): void => {
+      for (const listener of this.subscriptions.get(event) ?? []) listener(...args as never[])
+    }
+    $on = (event: string, listener: (...args: never[]) => void): (() => void) => {
+      const listeners = this.subscriptions.get(event) ?? new Set()
+      this.subscriptions.set(event, listeners)
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    }
+  }
+  new RemoteService(ctx)
+  // The CLI discovery namespace is a dotted inject service; give it a double
+  // whose methods answer with a carrier failure, so no test depends on the
+  // real Client Remote mount.
+  ctx.provide('remote.llm-cli-discovery', {
+    discover: async () => ({ ok: false, error: { code: 'test', message: 'unmounted', details: {} } }),
+    test: async () => ({ ok: false, error: { code: 'test', message: 'unmounted', details: {} } }),
+  })
   // The apply path only captures the wire face; no call leaves this fake
   // until a section actually loads.
   ctx.provide('connection', { api: {}, isLoopback } as never)
@@ -43,7 +67,7 @@ function declare(slots: SlotRegistry): () => void {
 
 describe('ui-settings-models apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote'])
+    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.llm-cli-discovery'])
   })
 
   it('registers the models nav entry for declarations before or after apply', async () => {

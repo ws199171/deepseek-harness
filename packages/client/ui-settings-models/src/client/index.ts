@@ -56,7 +56,7 @@ export function refreshIfLoaded(controller: ModelsSettingsStore): void {
  * ui-settings' apply, whose activation order relative to this one is NOT
  * constrained; registration depends on each slot through `slots.inject()`.
  */
-export const inject = ['slots', 'locale', 'connection', 'remote']
+export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.llm-cli-discovery']
 
 /**
  * Register the Models section once the `settings.section` declaration is on
@@ -77,6 +77,7 @@ export function apply(ctx: ClientContext): void {
     controller,
     useSnapshot,
     api: connection.api,
+    cliRemote: ctx.remote['llm-cli-discovery'],
     t,
   })
   const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({

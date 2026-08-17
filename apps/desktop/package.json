@@ -1,0 +1,28 @@
+{
+  "name": "@deepseek-ai/dsh-desktop",
+  "description": "The dsh desktop shell: an Electron app that hosts the DeepSeek Harness web UI. The host boots in the Electron main process (CLI `runProfile`) and the renderer uses the loopback HTTP/WebSocket server for the wire protocol",
+  "version": "0.1.0-rc.5",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "apps/desktop"
+  },
+  "type": "module",
+  "main": "src/main.ts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsdown",
+    "start": "pnpm run build && NODE_OPTIONS=--import=tsx/esm electron ."
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "workspace:^",
+    "@deepseek-ai/dsh-app-boot": "workspace:^",
+    "@deepseek-ai/dsh-host-apiproxy": "workspace:^"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-host-webserver": "workspace:^",
+    "electron": "^37.2.0",
+    "tsx": "^4.22.4"
+  }
+}

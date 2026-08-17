@@ -95,6 +95,14 @@
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
 
+    # The delegating CLI adapter: answers model calls through a CLI child
+    # (default `codebuddy`) that carries its own authentication and runs its
+    # own tool loop, so a deployment can use it without any API key. The
+    # `codebuddy-cli` route registers with the defaults; a `llm-cli:` settings
+    # section refreshes command/args/models per request.
+    - id: llm-cli
+      name: '@deepseek-ai/dsh-llm-cli'
+
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
       config:

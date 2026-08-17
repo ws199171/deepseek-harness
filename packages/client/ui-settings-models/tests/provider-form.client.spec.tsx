@@ -145,6 +145,10 @@ async function mountSection(options: Parameters<typeof scriptedFace>[0] = {}) {
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
     api: scripted.face as never,
+    cliRemote: {
+      discover: async () => ({ ok: false, error: { code: 'test', message: 'unmounted', details: {} } }),
+      test: async () => ({ ok: false, error: { code: 'test', message: 'unmounted', details: {} } }),
+    },
     t,
   }
   render(<ModelsSection {...injected} />)

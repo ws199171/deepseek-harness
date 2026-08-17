@@ -20,6 +20,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-web-react'
 import { CustomProviderCard } from './CustomProviderCard.tsx'
 import { deriveKeyRef, messageOf, protocolChoices, providerUsable } from './store.ts'
 import type { ModelsSettingsState, ModelsSettingsStore, ProviderRow } from './store.ts'
+import { unavailableCliRemote, type CliDiscoveryRemote } from './CliProviderPanel.tsx'
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
@@ -32,6 +33,8 @@ export interface ModelsSectionInjected {
   useSnapshot: SnapshotSelectorHook<ModelsSettingsState>
   /** Wire faces the editor writes through. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  /** The CLI discovery/test Remote face (the `llm-cli` layout renders it). */
+  cliRemote: CliDiscoveryRemote
   /** Section copy. */
   t: (key: keyof typeof en) => string
 }
@@ -63,7 +66,7 @@ interface EditorTarget extends ProviderIdentity {
 /** Values that vary around the shared provider-editor rendering. */
 interface ProviderEditorRenderProps extends Pick<
   ProviderEditorProps,
-  'namespace' | 'api' | 't' | 'readOnly' | 'onClose'
+  'namespace' | 'api' | 'cliRemote' | 't' | 'readOnly' | 'onClose'
 > {
   target: EditorTarget
 }
@@ -169,13 +172,16 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
-  const { controller, useSnapshot, api, t } = props
+  const { controller, useSnapshot, api, cliRemote, t } = props
   if (controller === undefined || useSnapshot === undefined || api === undefined || t === undefined) return null
-  return <Loaded injected={{ controller, useSnapshot, api, t }} />
+  // The CLI panel degrades to a "unavailable" face when the remote is absent;
+  // the page itself must not refuse to render without it.
+  const remote = cliRemote ?? unavailableCliRemote()
+  return <Loaded injected={{ controller, useSnapshot, api, cliRemote: remote, t }} />
 }
 
 function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
-  const { controller, api, t } = injected
+  const { controller, api, cliRemote, t } = injected
   const state = injected.useSnapshot(snapshot => snapshot)
   const [editing, setEditing] = useState<EditorTarget | undefined>(undefined)
   const [adding, setAdding] = useState(false)
@@ -298,6 +304,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                   target,
                   namespace,
                   api,
+                  cliRemote,
                   t,
                   readOnly: !state.writable,
                   onClose: (changed) => { closeSetup(changed, target) },
@@ -382,6 +389,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                   target,
                   namespace,
                   api,
+                  cliRemote,
                   t,
                   readOnly: !state.writable,
                   onClose: (changed) => { closeEditor(changed, target) },

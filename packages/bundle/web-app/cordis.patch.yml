@@ -17,6 +17,7 @@
   config:
     persona: >-
       You are a coding agent powered by the {{model}} model. Your working directory is {{cwd}}.
+      Use Simplified Chinese for user-facing responses unless the user explicitly requests another language.
 
 # TODO: Re-enable shared HMR for Web after its reload lifecycle is tested.
 - id: hmr
