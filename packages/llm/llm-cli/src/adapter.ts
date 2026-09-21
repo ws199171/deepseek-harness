@@ -180,10 +180,6 @@ export class CliAdapter extends LlmAdapter {
       yield failureChunk(`llm-cli: failed to start the CLI child: ${message}`, CLI_START_FAILED_CODE, signal)
       return
     }
-    if (child.pid <= 0) {
-      yield failureChunk('llm-cli: the CLI child failed to spawn', CLI_START_FAILED_CODE, signal)
-      return
-    }
     const stdout = child.stdout
     if (stdout === undefined) {
       yield failureChunk('llm-cli: the CLI child has no stdout for stream-json', CLI_START_FAILED_CODE, signal)
@@ -315,11 +311,9 @@ export class CliAdapter extends LlmAdapter {
       stdout.off('end', onEnd)
       stdout.off('error', onError)
       signal?.removeEventListener('abort', onAbort)
-      if (child.pid > 0) {
-        try { child.stdin?.end() } catch { /* already closed */ }
-        child.terminate()
-        await child.waitForExit().catch(() => {})
-      }
+      try { child.stdin?.end() } catch { /* already closed */ }
+      child.terminate()
+      await child.waitForExit().catch(() => {})
     }
   }
 }

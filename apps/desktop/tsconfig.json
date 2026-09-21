@@ -4,24 +4,9 @@
     "rootDir": "src",
     "outDir": "lib/types"
   },
-  "include": [
-    "src"
-  ],
+  "include": ["src"],
   "references": [
-    {
-      "path": "../../vendor/cordis"
-    },
-    {
-      "path": "../../apps/cli"
-    },
-    {
-      "path": "../../packages/boot/app-boot"
-    },
-    {
-      "path": "../../packages/host/apiproxy"
-    },
-    {
-      "path": "../../packages/util/launch-environment"
-    }
+    { "path": "../../packages/boot/app-boot" },
+    { "path": "../../packages/util/home-paths" }
   ]
 }

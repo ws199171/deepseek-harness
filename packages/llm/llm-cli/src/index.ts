@@ -21,7 +21,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import {
   CliAdapter,
   CODEBUDDY_PERMISSION_MODES,
@@ -55,7 +55,7 @@ export type {
 export const name = 'llm-cli'
 export const inject = ['llm', 'subprocess', 'sessions']
 
-const NS = settingsNamespace('llm-cli')
+const NS = 'llm-cli'
 /** The single provider route this plugin owns. */
 const DEFAULT_PROVIDER = 'codebuddy-cli'
 /** The default CLI executable name. */
@@ -231,14 +231,18 @@ export function apply(ctx: Context, config: Config): void {
   // probe their stream-json protocol before the user commits to one.
   ctx.plugin(CliDiscoveryService)
 
-  installSettingsSection(ctx, NS, Config, config, {
-    setSource: (source) => {
-      current = source
-    },
-    onChange: () => {
-      // Re-judge the settings snapshot now so an invalid section is reported
-      // at write time, not at the next request.
-      options()
-    },
+  // A deployment without the settings service keeps the composition entry as
+  // the only source; the section layers over it once the provider is present.
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.settings.installSection(ctx, NS, Config, config, {
+      setSource: (source) => {
+        current = source
+      },
+      onChange: () => {
+        // Re-judge the settings snapshot now so an invalid section is reported
+        // at write time, not at the next request.
+        options()
+      },
+    })
   })
 }

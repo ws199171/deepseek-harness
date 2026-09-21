@@ -14,6 +14,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { CliDiscovered, CliTestResult } from '@deepseek-ai/dsh-llm-cli/types'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
@@ -26,7 +27,7 @@ export interface CliDiscoveryRemote {
 
 /** A carrier-level failure for the degrade-to-hint face. */
 function unavailable(message: string): RemoteFailure {
-  return { code: 'missing-remote', message, details: {} }
+  return new RemoteError('gateway/internal', message, {})
 }
 
 /**
