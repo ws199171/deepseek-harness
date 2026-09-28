@@ -1,0 +1,76 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/llm/llm-cli/README.md
+/:
+  en: d3bdc3a05712ad1a
+  zh: 7d58e33c49f00ef6
+/deepseek-ai-dsh-llm-cli:
+  en: c43d599e9efdc5ed
+  zh: 430b85ea6304a248
+/deepseek-ai-dsh-llm-cli/summary:
+  en: 0bbaa3778aa30952
+  zh: f3b02729eedd3a03
+/deepseek-ai-dsh-llm-cli/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-llm-cli/use-this-package:
+  en: 7c09e842eec87617
+  zh: 8e1a8b7c47014733
+/deepseek-ai-dsh-llm-cli/use-this-package/roles:
+  en: 73743d2bcdb1720e
+  zh: 71bd224f04f294f6
+/deepseek-ai-dsh-llm-cli/use-this-package/how-one-call-works:
+  en: 60c87848fc9a6430
+  zh: 5c738e1ebe1bfa05
+/deepseek-ai-dsh-llm-cli/use-this-package/configure-the-route:
+  en: c76dfa6eb471d30b
+  zh: f3ab87132b86113b
+/deepseek-ai-dsh-llm-cli/use-this-package/model-ids:
+  en: eb42e31b1f86cfe0
+  zh: 5536d4bf102ea0e1
+/deepseek-ai-dsh-llm-cli/use-this-package/sessions:
+  en: 7c3d01fbf50f6eff
+  zh: fe7723cf62b54e96
+/deepseek-ai-dsh-llm-cli/understand-the-implementation:
+  en: 42b15ac6321706aa
+  zh: 4ed0861911abaf5d
+/deepseek-ai-dsh-llm-cli/understand-the-implementation/module-map:
+  en: cc60cff3b2e22119
+  zh: ba0457997fe12ffc
+/deepseek-ai-dsh-llm-cli/understand-the-implementation/two-seams-and-nothing-else:
+  en: a6f1ea2c9c6e92a4
+  zh: 80fa24af817ab1af
+/deepseek-ai-dsh-llm-cli/understand-the-implementation/why-the-prompt-is-an-argument:
+  en: e86550dec6fdc0cc
+  zh: 78cc835f1c169318
+/deepseek-ai-dsh-llm-cli/understand-the-implementation/why-the-system-prompt-moves:
+  en: 1dbee36cb7319ee6
+  zh: ab86e4e5bfcac4b0
+/deepseek-ai-dsh-llm-cli/understand-the-implementation/invariant-ownership:
+  en: 9b3006b3ef29bbda
+  zh: e8e8222b83bf0e12
+/deepseek-ai-dsh-llm-cli/further-exploration:
+  en: f8ab27bb5852d96e
+  zh: a0b4323493972403
+/deepseek-ai-dsh-llm-cli/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-llm-cli/model-experience/codebuddy-cli-model-request:
+  en: 402858fbc43f99d4
+  zh: 555349ebdb521d22
+/deepseek-ai-dsh-llm-cli/model-experience/codebuddy-cli-model-request/what-the-model-sees:
+  en: eaa8378489e63e72
+  zh: cd5da9e1abd58281
+/deepseek-ai-dsh-llm-cli/model-experience/codebuddy-cli-model-request/token-effect:
+  en: e00c8be9b05421ce
+  zh: 5f90b6a2f54e388a
+/deepseek-ai-dsh-llm-cli/model-experience/codebuddy-cli-model-request/kv-cache-effect:
+  en: 62185188ed2bfb00
+  zh: 0ef91ac229f3f3c8
+/deepseek-ai-dsh-llm-cli/known-limitations-and-deferred-work:
+  en: 08772051e68cec94
+  zh: 8b28574b877dc28d
+/deepseek-ai-dsh-llm-cli/known-limitations-and-deferred-work/dev-note:
+  en: f85ba3175d451c1a
+  zh: b237e658eeeb8e9d

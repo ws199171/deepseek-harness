@@ -192,6 +192,9 @@
       "@deepseek-ai/dsh-agent/brand": ["./packages/core/agent/src/brand.ts"],
       "@deepseek-ai/dsh-headless/startup": ["./packages/bundle/headless/src/startup.ts"],
       "@deepseek-ai/dsh-web-app/startup": ["./packages/bundle/web-app/src/startup.ts"],
+      // The CLI model-source bundle is named for the route it mounts, not for
+      // its `llm-cli` directory, so the generated aliases skip it.
+      "@deepseek-ai/dsh-llm-cli-bundle": ["./packages/bundle/llm-cli/src"],
       "@deepseek-ai/dsh-client-*/client": ["./packages/client/*/src/client"],
       // One wildcard maps every @deepseek-ai/dsh-<name> to its source. Package
       // dir names are unique across groups, so first-on-disk-wins resolution is
@@ -402,6 +405,8 @@
       "@deepseek-ai/dsh-launch-environment": ["./packages/util/launch-environment/src"],
       "@deepseek-ai/dsh-lazy-require": ["./packages/util/lazy-require/src"],
       "@deepseek-ai/dsh-llm": ["./packages/llm/llm/src"],
+      "@deepseek-ai/dsh-llm/invariant": ["./packages/llm/llm/src/invariant.ts"],
+      "@deepseek-ai/dsh-llm-cli": ["./packages/llm/llm-cli/src"],
       "@deepseek-ai/dsh-llm-deepseek": ["./packages/llm/llm-deepseek/src"],
       "@deepseek-ai/dsh-llm-deepseek-account": ["./packages/llm/llm-deepseek-account/src"],
       "@deepseek-ai/dsh-llm-deepseek-api-key": ["./packages/llm/llm-deepseek-api-key/src"],
