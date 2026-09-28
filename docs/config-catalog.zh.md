@@ -1541,6 +1541,58 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-jobs-local -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-cli -->
+<a id="deepseek-aidsh-llm-cli"></a>
+
+## `@deepseek-ai/dsh-llm-cli`
+
+- `inject`: `llm` · `subprocess`
+- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `source`: [`packages/llm/llm-cli/src/config.ts:46`](../packages/llm/llm-cli/src/config.ts)
+
+```ts config-catalog
+/**
+ * Plugin config, validated by the same-named schemastery schema and doubling as
+ * the `llm-cli` user-settings section shape. Every field is optional in yml: a
+ * missing command falls back to `codebuddy`, and an empty section still
+ * registers the route with the defaults.
+ */
+export interface Config {
+  /** CLI executable; a bare name resolves on PATH. */
+  command: Volatile<string>
+  /** Arguments producing stream-json on stdout; the prompt is appended last. */
+  args: Volatile<string[]>
+  /** Arguments that print the CLI's supported model ids without starting an agent session. */
+  modelDiscoveryArgs: Volatile<string[]>
+  /** Hard ceiling in milliseconds for one model-discovery child. */
+  modelDiscoveryTimeoutMs: Volatile<number>
+  /** Advisory model ids offered beside the discovered ones. */
+  models: Volatile<CliCatalogModel[]>
+  /** Child working directory; when absent, a persistent session's workspace wins. */
+  cwd: Volatile<string | undefined>
+  /** Explicit environment entries layered over the subprocess seam's base. */
+  env: Volatile<Record<string, string>>
+  /** Argument carrying the persistent session id; an empty value disables CLI-side sessions. */
+  sessionIdArg: Volatile<string>
+  /** The CLI's own tool-approval policy for the delegated run. */
+  permissionMode: Volatile<CodeBuddyPermissionMode>
+  /** Grace in milliseconds for child process-tree termination. */
+  disposeGraceMs: Volatile<number>
+}
+
+/** One optional model entry the CLI route advertises. */
+export interface CliCatalogModel {
+  /** Model id accepted by {@link GenerateOptions.model} for this route. */
+  id: string
+  /** Selector label; defaults to {@link id}. */
+  name?: string
+}
+
+/** The delegated CLI's policy for approving tools inside its own agent loop. */
+export type CodeBuddyPermissionMode = typeof CODEBUDDY_PERMISSION_MODES[number]
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-cli -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-account -->
 <a id="deepseek-aidsh-llm-deepseek-account"></a>
 
@@ -4434,6 +4486,7 @@ export interface Config {
 | `@deepseek-ai/dsh-http-proxy` | — | [`packages/util/http-proxy/src/index.ts`](../packages/util/http-proxy/src/index.ts) |
 | `@deepseek-ai/dsh-launch-environment` | — | [`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts) |
 | `@deepseek-ai/dsh-lazy-require` | — | [`packages/util/lazy-require/src/index.ts`](../packages/util/lazy-require/src/index.ts) |
+| `@deepseek-ai/dsh-llm-cli-bundle` | — | [`packages/bundle/llm-cli/src/index.ts`](../packages/bundle/llm-cli/src/index.ts) |
 | `@deepseek-ai/dsh-llm-deepseek` | — | [`packages/llm/llm-deepseek/src/index.ts`](../packages/llm/llm-deepseek/src/index.ts) |
 | `@deepseek-ai/dsh-llm-mock-server` | — | [`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts) |
 | `@deepseek-ai/dsh-loader-smoke` | — | [`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts) |

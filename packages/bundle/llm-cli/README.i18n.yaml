@@ -1,0 +1,64 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/bundle/llm-cli/README.md
+/:
+  en: 173969e385b97321
+  zh: 9ff3572cc76d1eea
+/deepseek-ai-dsh-llm-cli-bundle:
+  en: 2e55d5e2b7ece66e
+  zh: e9179040645f44e2
+/deepseek-ai-dsh-llm-cli-bundle/summary:
+  en: 4ebf6c3be548e679
+  zh: e8bea9ea4ec8fbb7
+/deepseek-ai-dsh-llm-cli-bundle/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-llm-cli-bundle/use-this-package:
+  en: e88e76ac5ece71ff
+  zh: 2e2fdf4b08658260
+/deepseek-ai-dsh-llm-cli-bundle/use-this-package/mounting-the-profile:
+  en: cd94cb15df30ba0f
+  zh: 4b3df8a4453b78ef
+/deepseek-ai-dsh-llm-cli-bundle/use-this-package/what-the-patch-changes:
+  en: 122ac0b3ddf077da
+  zh: 132915b364032fc9
+/deepseek-ai-dsh-llm-cli-bundle/use-this-package/configuration:
+  en: aab8629acb789cc4
+  zh: ce1dd891d0ab1ef0
+/deepseek-ai-dsh-llm-cli-bundle/understand-the-implementation:
+  en: 42b15ac6321706aa
+  zh: 4ed0861911abaf5d
+/deepseek-ai-dsh-llm-cli-bundle/understand-the-implementation/one-overlay-three-edits:
+  en: 8fa807f737491eea
+  zh: 74158347e0fd0285
+/deepseek-ai-dsh-llm-cli-bundle/understand-the-implementation/row-ids-stay-addressable:
+  en: 46b4f39a980f6593
+  zh: bf43bba1b84318b6
+/deepseek-ai-dsh-llm-cli-bundle/understand-the-implementation/invariant-ownership:
+  en: e150e39b831cbe39
+  zh: a717052b04c9ed56
+/deepseek-ai-dsh-llm-cli-bundle/further-exploration:
+  en: 77c97eb871835deb
+  zh: 42660adb94a2f4e2
+/deepseek-ai-dsh-llm-cli-bundle/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-llm-cli-bundle/model-experience/the-composed-cli-route:
+  en: c34c6934f46091d5
+  zh: 78db1182448660a4
+/deepseek-ai-dsh-llm-cli-bundle/model-experience/the-composed-cli-route/what-the-model-sees:
+  en: b44a2fa7935a57da
+  zh: db4ec9fbc9146b46
+/deepseek-ai-dsh-llm-cli-bundle/model-experience/the-composed-cli-route/token-effect:
+  en: 817359ea82b560ff
+  zh: 6ef69efb181d2305
+/deepseek-ai-dsh-llm-cli-bundle/model-experience/the-composed-cli-route/kv-cache-effect:
+  en: 44683da2ccedf5d2
+  zh: 938543fd4e31e07a
+/deepseek-ai-dsh-llm-cli-bundle/known-limitations-and-deferred-work:
+  en: dd3cb44a06669044
+  zh: 2deaa05f3b744085
+/deepseek-ai-dsh-llm-cli-bundle/known-limitations-and-deferred-work/dev-note:
+  en: 44edfd847296959a
+  zh: a04765a1b115a031

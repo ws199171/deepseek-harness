@@ -1,0 +1,47 @@
+# The dsh-llm-cli-bundle patch: the CodeBuddy-CLI-backed model source over
+# dsh-base. It mounts the delegating CLI adapter as the composition's
+# conversation route and turns off the HTTP provider rows dsh-base mounts, so a
+# deployment needs no API key and no provider endpoint.
+#
+# The overlay keeps the whole product intact — sessions, tools, the agent loop,
+# and the Models page all stay mounted — and changes only which route answers a
+# model call. Later bundle patches and the user's profile cordis.patch.yml
+# still address these rows by id, with the last write winning per row.
+
+- insert:
+    # The delegating CLI adapter: answers each model call through a CLI child
+    # (default `codebuddy`) that carries its own authentication and runs its
+    # own agent loop with its own tools. The `codebuddy-cli` route registers
+    # with these defaults; a `llm-cli:` settings section refreshes
+    # command/args/models per request without restarting anything.
+    - id: llm-cli
+      name: '@deepseek-ai/dsh-llm-cli'
+      config:
+        command: codebuddy
+        args:
+          - '--print'
+          - '--output-format'
+          - 'stream-json'
+        permissionMode: bypassPermissions
+
+# The CLI owns both authentication and the agent loop, so every row that would
+# instead resolve a key and reach an endpoint is off. Leaving one mounted would
+# keep offering it beside the CLI route in the very picker that exists to select
+# the CLI, and its keyless requests would fail only at the first turn.
+- id: llm-deepseek
+  disabled: true
+
+- id: llm-deepseek-account
+  disabled: true
+
+- id: llm-pi-ai
+  disabled: true
+
+# A new Agent lands on the CLI route, which is what makes the swap complete: the
+# dsh-base default names `deepseek-official`, an adapter this patch turns off.
+# DSH_CLI_MODEL names one of the ids the CLI accepts for `--model`; unset leaves
+# the CLI's own default selection in charge.
+- id: agent-default-model
+  config:
+    provider: codebuddy-cli
+    model: !!js process.env.DSH_CLI_MODEL ?? 'default'
