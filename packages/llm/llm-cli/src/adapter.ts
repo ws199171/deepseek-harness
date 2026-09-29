@@ -16,6 +16,7 @@
 
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import type {
+  ContentBlock,
   GenerateOptions,
   LlmModelInfo,
   LlmProviderInfo,
@@ -23,6 +24,8 @@ import type {
   StreamChunk,
 } from '@deepseek-ai/dsh-llm'
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
+import { AcpTransport } from './acp.ts'
+import type { AcpTransportOptions, AcpTurnEvent } from './acp.ts'
 import { parseCliLine } from './wire.ts'
 import { flattenConversation, systemTextOf, trailingUserText } from './translate.ts'
 
@@ -47,6 +50,33 @@ export const CODEBUDDY_PERMISSION_MODES = [
 /** The delegated CLI's policy for approving tools inside its own agent loop. */
 export type CodeBuddyPermissionMode = typeof CODEBUDDY_PERMISSION_MODES[number]
 
+/** The reasoning effort levels the CLI's own flag accepts. */
+export const CODEBUDDY_EFFORT_LEVELS = [
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const
+
+/** Reasoning effort the delegated CLI forwards to the model. */
+export type CodeBuddyEffort = typeof CODEBUDDY_EFFORT_LEVELS[number]
+
+/** The ways this route can reach the CLI. */
+export const CLI_TRANSPORTS = ['print', 'acp'] as const
+
+/**
+ * How one call reaches the CLI: `print` starts a child per call and reads its
+ * stream-json, `acp` keeps one child per route and prompts a session on it.
+ * `print` is the default because it needs nothing of the CLI but its own
+ * non-interactive mode.
+ */
+export type CliTransport = typeof CLI_TRANSPORTS[number]
+
+/** Transport a deployment gets without asking for one. */
+export const DEFAULT_TRANSPORT: CliTransport = 'print'
+
 /**
  * Validated executable facts for one operation. The plugin's resolve step
  * produces this shape; the adapter trusts it and re-reads it per operation.
@@ -62,10 +92,20 @@ export interface CliConnectionOptions {
   env: Record<string, string>
   /** Argument carrying the persistent session id, or undefined for stateless runs. */
   sessionIdArg?: string
+  /** How a call reaches the CLI; see {@link CliTransport}. */
+  transport: CliTransport
   /** The CLI's permission policy for tools its own loop executes. */
   permissionMode: CodeBuddyPermissionMode
+  /** Tool set the CLI restricts itself to; an empty value disables every built-in tool. Absent leaves its own default. */
+  tools?: string
+  /** Cap on the CLI's own agentic turns; absent leaves its own default. */
+  maxTurns?: number
+  /** Reasoning effort the CLI forwards to the model; absent leaves its own default. */
+  effort?: CodeBuddyEffort
   /** Grace in milliseconds for child process-tree termination. */
   disposeGraceMs: number
+  /** Executable and arguments that start the CLI as a long-lived ACP agent. */
+  acpArgv: readonly string[]
   /** Executable and arguments that print the CLI's supported model ids. */
   discoveryArgv: readonly string[]
   /** Hard ceiling in milliseconds for one model-discovery child. */
@@ -138,13 +178,19 @@ class ChunkQueue {
 
 /**
  * Delegating CLI adapter: one provider route whose model ids name the CLI's own
- * model selection. Every `stream` call spawns a fresh child, hands it the
- * prompt as its final positional argument, and consumes stream-json on stdout.
+ * model selection. Its default transport spawns a child per call, hands it the
+ * prompt as its final positional argument, and consumes stream-json on stdout;
+ * the ACP transport keeps one child per route and prompts a session on it, so
+ * the CLI's cold start is paid once per route instead of once per call.
  */
 export class CliAdapter extends LlmAdapter {
   private readonly options: CliAdapterOptions['options']
   private readonly spawn: CliAdapterOptions['spawn']
   private readonly resolveSessionCwd: NonNullable<CliAdapterOptions['resolveSessionCwd']>
+  /** The long-lived ACP connection, replaced when what starts its child changes. */
+  private acp: { signature: string; transport: AcpTransport } | undefined
+  /** Numbers the throwaway sessions a stateless call gets. */
+  private statelessCalls = 0
 
   constructor(options: CliAdapterOptions) {
     super()
@@ -193,6 +239,11 @@ export class CliAdapter extends LlmAdapter {
     // CodeBuddy-style CLIs read the prompt from the trailing positional
     // argument, not stdin, so argv stays constant per resolution.
     const argv = [...facts.argv, '--permission-mode', facts.permissionMode, '--model', options.model]
+    // The delegated loop's own bounds, passed only when the deployment set one:
+    // an empty `tools` is a value (every built-in tool off), not an absence.
+    if (facts.tools !== undefined) argv.push('--tools', facts.tools)
+    if (facts.maxTurns !== undefined) argv.push('--max-turns', String(facts.maxTurns))
+    if (facts.effort !== undefined) argv.push('--effort', facts.effort)
     const system = systemTextOf(options.messages, options.system)
     if (system !== undefined) argv.push('--append-system-prompt', system)
     if (sessionId !== undefined && facts.sessionIdArg !== undefined) argv.push(facts.sessionIdArg, sessionId)
@@ -200,6 +251,11 @@ export class CliAdapter extends LlmAdapter {
     const cwd = sessionId !== undefined && facts.useSessionCwd
       ? this.resolveSessionCwd(sessionId) ?? facts.cwd
       : facts.cwd
+
+    if (facts.transport === 'acp') {
+      yield* this.streamAcp(facts, options, prompt, cwd, signal)
+      return
+    }
 
     let child: SubprocessHandle
     try {
@@ -224,6 +280,12 @@ export class CliAdapter extends LlmAdapter {
 
     const queue = new ChunkQueue()
     let buffer = ''
+    // `messageText` measures the CLI message being read and `lastText` the whole
+    // answer. A partial-message run carries each message's text twice — once as
+    // deltas while it is generated, once as the completed message — so a delta
+    // is measured against its own message, and the boundary between messages is
+    // what keeps the second one from reading as a shortening of the first.
+    let messageText = ''
     let lastText = ''
     let blockStarted = false
     let settled = false
@@ -236,13 +298,18 @@ export class CliAdapter extends LlmAdapter {
      * @returns whether the line carried the run's terminal event.
      */
     const acceptLine = (line: string): boolean => {
-      const event = parseCliLine(line, lastText)
+      const event = parseCliLine(line, messageText)
       if (event === undefined || event.kind === 'ignored') return false
+      if (event.kind === 'message-start') {
+        messageText = ''
+        return false
+      }
       if (event.kind === 'text') {
         if (!blockStarted) {
           blockStarted = true
           queue.push({ type: 'block-start', index: 0, blockType: 'text' })
         }
+        messageText += event.delta.text
         lastText += event.delta.text
         queue.push({ type: 'text-delta', index: 0, text: event.delta.text })
         return false
@@ -341,4 +408,144 @@ export class CliAdapter extends LlmAdapter {
       await child.waitForExit().catch(() => {})
     }
   }
+
+  /**
+   * Answer one call through the route's long-lived ACP child. The session owns
+   * the conversation, so only this call's text is sent — which is also why the
+   * transport pays the CLI's cold start once per route instead of once per call.
+   * @param facts - resolved executable facts for this operation.
+   * @param options - the model call being answered.
+   * @param prompt - the text this call carries.
+   * @param cwd - workspace the conversation's session runs in.
+   * @param signal - caller cancellation, forwarded as a session cancel.
+   * @returns the call's chunks, ending with its terminal.
+   */
+  private async * streamAcp(
+    facts: CliConnectionOptions,
+    options: GenerateOptions,
+    prompt: string,
+    cwd: string,
+    signal: AbortSignal | undefined,
+  ): AsyncIterable<StreamChunk> {
+    const transport = this.acpTransport(facts, options.model)
+    // A stateless caller owns no conversation, so its session is a throwaway:
+    // reusing one would hand the next title the previous title's history.
+    this.statelessCalls += 1
+    const key = options.sessionId ?? `stateless:${String(this.statelessCalls)}`
+    let session: string
+    try {
+      session = await transport.sessionFor(key, cwd)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      yield failureChunk(`llm-cli: the CLI session could not be opened: ${message}`, CLI_START_FAILED_CODE, signal)
+      return
+    }
+
+    let kind: AcpTurnEvent['kind'] | undefined
+    let index = -1
+    let text = ''
+    let reasoning = ''
+    try {
+      // The CLI reports thinking and answer text as separate streams; a block
+      // ends where the next stream takes over, and the last one at the end.
+      for await (const event of transport.prompt(session, prompt, signal)) {
+        if (kind !== event.kind) {
+          if (kind !== undefined) yield { type: 'block-end', index, block: answerBlock(kind, kind === 'text' ? text : reasoning) }
+          kind = event.kind
+          index += 1
+          yield { type: 'block-start', index, blockType: blockTypeOf(kind) }
+        }
+        if (event.kind === 'text') {
+          text += event.text
+          yield { type: 'text-delta', index, text: event.text }
+        } else {
+          reasoning += event.text
+          yield { type: 'reasoning-delta', index, text: event.text }
+        }
+      }
+      if (kind !== undefined) yield { type: 'block-end', index, block: answerBlock(kind, kind === 'text' ? text : reasoning) }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    } catch (error: unknown) {
+      if (signal?.aborted === true) {
+        yield failureChunk('llm-cli: the CLI run was aborted', 'ABORTED', signal)
+        return
+      }
+      const message = error instanceof Error ? error.message : String(error)
+      yield failureChunk(`llm-cli: ${message}`, CLI_START_FAILED_CODE, signal)
+    }
+  }
+
+  /**
+   * Release the route's long-lived child, if one was ever started. The plugin
+   * calls this from the effect that registered the route, so unloading the
+   * route unloads its child rather than leaving it to outlive the composition.
+   * @returns once the child's process tree is gone.
+   */
+  async dispose(): Promise<void> {
+    const transport = this.acp?.transport
+    this.acp = undefined
+    if (transport !== undefined) await transport.dispose()
+  }
+
+  /**
+   * The ACP connection these facts describe, started on first use and replaced
+   * when the facts that started it change. The model rides the process: the CLI
+   * takes it as a launch argument, so one child serves one model.
+   * @param facts - resolved executable facts for this operation.
+   * @param model - model id this call selected.
+   * @returns the connection to prompt on.
+   */
+  private acpTransport(facts: CliConnectionOptions, model: string): AcpTransport {
+    const argv = [
+      ...facts.acpArgv,
+      '--permission-mode', facts.permissionMode,
+      ...facts.tools === undefined ? [] : ['--tools', facts.tools],
+      ...facts.effort === undefined ? [] : ['--effort', facts.effort],
+      '--model', model,
+    ]
+    const signature = JSON.stringify([argv, facts.cwd, facts.env, facts.disposeGraceMs])
+    if (this.acp?.signature === signature) return this.acp.transport
+    const previous = this.acp?.transport
+    const selectPermission = selectPermissionFor(facts.permissionMode)
+    const transport = new AcpTransport({
+      spawn: this.spawn,
+      argv,
+      cwd: facts.cwd,
+      env: facts.env,
+      graceMs: facts.disposeGraceMs,
+      ...selectPermission === undefined ? {} : { selectPermission },
+    })
+    this.acp = { signature, transport }
+    // The replaced child only has its own exit left; the seam owns escalation,
+    // and a disposal that fails to observe it is that seam's to report.
+    void previous?.dispose().catch(() => undefined)
+    return transport
+  }
+}
+
+/** The block kind one ACP stream reports as, in this seam's vocabulary. */
+function blockTypeOf(kind: AcpTurnEvent['kind']): 'text' | 'reasoning' {
+  // The CLI calls its reasoning stream "thought"; this seam calls the block it
+  // becomes "reasoning", so the two vocabularies meet here and nowhere else.
+  return kind === 'text' ? 'text' : 'reasoning'
+}
+
+/** The finished block one partial stream leaves behind. */
+function answerBlock(kind: AcpTurnEvent['kind'], text: string): ContentBlock {
+  return kind === 'text' ? { type: 'text', text } : { type: 'reasoning', text }
+}
+
+/**
+ * The policy a permission request is answered with. A mode that already lets the
+ * CLI run its tools unattended answers with the same intent the CLI's own flag
+ * means; every other mode refuses, because approving there would override a
+ * policy the deployment chose deliberately.
+ * @param mode - the route's permission policy.
+ * @returns the selector, or undefined to refuse every request.
+ */
+function selectPermissionFor(mode: CodeBuddyPermissionMode): AcpTransportOptions['selectPermission'] {
+  return mode === 'bypassPermissions' || mode === 'acceptEdits' || mode === 'auto' || mode === 'dontAsk'
+    ? options => options.find(option => option.kind === 'allow_always')?.id
+      ?? options.find(option => option.kind.startsWith('allow'))?.id
+    : undefined
 }

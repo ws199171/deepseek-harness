@@ -94,6 +94,22 @@ function entryOf(ctx: Context) {
   return ctx.llm.listConfigurableProviders().find(candidate => candidate.provider === PROVIDER)
 }
 
+/**
+ * The route catalog once the load-time probe has landed. The probe is what
+ * makes a CLI model selectable, so the wait itself is the behavior: a catalog
+ * that never receives the listing leaves the picker empty.
+ * @param ctx - the booted composition.
+ * @returns the advertised model ids.
+ */
+async function advertisedIds(ctx: Context): Promise<string[]> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const ids = (await ctx.llm.listModels(PROVIDER)).map(model => model.id)
+    if (ids.includes('local:house')) return ids
+    await new Promise(resolveWait => setTimeout(resolveWait, 20))
+  }
+  throw new Error('llm-cli: the CLI listing never reached the route catalog')
+}
+
 describe('llm-cli settings presentation', () => {
   it('claims the Models page for this entry and releases it on disposal', async () => {
     // A CLI route has no endpoint to name, so its own form would be empty: the
@@ -138,10 +154,21 @@ describe('llm-cli registration', () => {
     ])
   })
 
-  it('advertises the configured catalog through the registered adapter', async () => {
+  it('advertises the models the CLI lists beside the configured catalog', async () => {
     const { ctx } = await boot({ config: { ...FAKE_CLI, models: [{ id: 'house' }, { id: 'named', name: 'Named' }] } })
 
-    expect((await ctx.llm.listModels(PROVIDER)).map(model => model.id)).toEqual(['house', 'named'])
+    // The picker reads this list, so the CLI's own ids lead it and a declared
+    // entry the CLI does not report follows with its label intact.
+    expect(await advertisedIds(ctx)).toEqual(['gpt-5.6-sol', 'local:house', 'house', 'named'])
+  })
+
+  it('keeps the configured catalog when the CLI cannot be asked', async () => {
+    const { ctx } = await boot({ config: { command: 'definitely-not-a-real-cli', models: [{ id: 'house' }] } })
+
+    // A deployment that ships no CLI still gets its own ids, and the probe that
+    // found nothing is not a plugin failure.
+    await ctx.fiber.await()
+    expect((await ctx.llm.listModels(PROVIDER)).map(model => model.id)).toEqual(['house'])
   })
 
   it('withdraws the route and its discovery offer when the plugin unloads', async () => {
@@ -174,6 +201,74 @@ describe('llm-cli discovery', () => {
     // catalog is the answer a deployment that ships no CLI still gets.
     const missing = await boot({ config: { command: 'definitely-not-a-real-cli', models: [{ id: 'house' }] } })
     expect(await missing.ctx.llm.discoverModels('llm-cli', { provider: PROVIDER })).toEqual([{ id: 'house' }])
+  })
+})
+
+describe('llm-cli ACP transport', () => {
+  /** The ACP agent stand-in: one process, one session per conversation. */
+  const FAKE_ACP_CLI: Options = {
+    command: process.execPath,
+    acpArgs: [fileURLToPath(new URL('./fixtures/fake-acp-cli.mjs', import.meta.url))],
+    modelDiscoveryArgs: [FAKE_CLI_PATH, '--help'],
+    transport: 'acp',
+  }
+
+  /** Run one request through the real route and return its raw chunks. */
+  async function chunksOf(ctx: Context, extra: Partial<GenerateOptions> = {}): Promise<StreamChunk[]> {
+    const chunks: StreamChunk[] = []
+    for await (const chunk of ctx.llm.stream({
+      provider: PROVIDER,
+      model: 'gpt-5.6-sol',
+      messages: [user('hi')],
+      ...extra,
+    })) chunks.push(chunk)
+    return chunks
+  }
+
+  it('answers a call as streamed updates from a long-lived child', async () => {
+    const { ctx } = await boot({ config: FAKE_ACP_CLI })
+
+    // The CLI's thinking arrives as its own block, and its answer text follows
+    // as the next one; neither waits for the turn to end.
+    expect(await chunksOf(ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> })).toEqual([
+      { type: 'block-start', index: 0, blockType: 'reasoning' },
+      { type: 'reasoning-delta', index: 0, text: 'thinking' },
+      { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'thinking' } },
+      { type: 'block-start', index: 1, blockType: 'text' },
+      { type: 'text-delta', index: 1, text: 'call:1 session-1 ' },
+      { type: 'text-delta', index: 1, text: 'hi' },
+      { type: 'block-end', index: 1, block: { type: 'text', text: 'call:1 session-1 hi' } },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ])
+  })
+
+  it('serves the next call of the same conversation from that child and session', async () => {
+    const { ctx } = await boot({ config: FAKE_ACP_CLI })
+    const sessionId = 'known' as NonNullable<GenerateOptions['sessionId']>
+    await chunksOf(ctx, { sessionId })
+
+    // The stand-in numbers both the calls it serves and the sessions it opened:
+    // a fresh child would answer `call:1` again, and a fresh session would say
+    // `session-2`, so this is what proves the process and its session lasted.
+    const text = (await chunksOf(ctx, { sessionId }))
+      .filter(chunk => chunk.type === 'text-delta')
+      .map(chunk => chunk.text)
+      .join('')
+    expect(text).toBe('call:2 session-1 hi')
+  })
+
+  it('gives every stateless call its own session', async () => {
+    const { ctx } = await boot({ config: FAKE_ACP_CLI })
+
+    // Session titles and compaction carry no conversation, so sharing one
+    // session would hand the second call the first call's history. A stateless
+    // call sends the whole conversation, which is the flattened form.
+    const deltas = async (): Promise<string> => (await chunksOf(ctx))
+      .filter(chunk => chunk.type === 'text-delta')
+      .map(chunk => chunk.text)
+      .join('')
+    expect(await deltas()).toBe('call:1 session-1 User: hi')
+    expect(await deltas()).toBe('call:2 session-2 User: hi')
   })
 })
 

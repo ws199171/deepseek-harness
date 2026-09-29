@@ -55,15 +55,28 @@ kind: "package-reference"
   name: '@deepseek-ai/dsh-llm-cli'
   config:
     command: codebuddy
-    args: ['--print', '--output-format', 'stream-json']
+    args: ['--print', '--output-format', 'stream-json', '--include-partial-messages']
+    acpArgs: ['--acp']
     modelDiscoveryArgs: ['--help']
     models: []
+    transport: print
     permissionMode: bypassPermissions
     sessionIdArg: --session-id
     disposeGraceMs: 3000
 ```
 
 `cwd` 为每个请求钉住子进程的工作区；省略它则让持久会话运行在会话存储所记录的工作区中，并回退到进程目录。把 `sessionIdArg` 设为空字符串会关闭 CLI 侧会话，从而让每次调用都无状态。`env` 叠加在接缝清洗后的基底之上。
+
+### 传输方式
+
+`transport` 决定一次调用如何抵达 CLI，两种模式在"每次调用付出什么"上不同：
+
+- `print`（默认）：为这一次调用按 `args` 启动子进程并读取其 `stream-json` 输出。`--include-partial-messages` 让答案在 CLI 仍在生成时就逐段到达；不带它，调用方要等整轮跑完才拿到一整条消息。
+- `acp`：每条路由只按 `acpArgs` 启动一个常驻子进程，并在其上按会话发提示。这样 CLI 的冷启动只付一次而非每次调用都付；对话历史由该会话持有，CLI 自己的思考过程也以独立内容块到达，而不是留在子进程里。
+
+### 约束被委托的循环
+
+`tools`、`maxTurns`、`effort` 直达 CLI 自身的 agent loop——在本包能管的范围内，它默认是不设上限的。`tools` 置空会关掉全部内置工具，这是本路由最接近"裸模型调用"的形态：CLI 不运行任何工具直接作答。`maxTurns` 限制它的 agentic 轮数，`effort` 指定它转发给模型的推理档位。三者都省略时由 CLI 自己的默认值决定——除非部署方确有理由，否则这就是正确的选择。
 
 ### 模型标识
 

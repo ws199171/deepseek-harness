@@ -14,6 +14,11 @@
     # own agent loop with its own tools. The `codebuddy-cli` route registers
     # with these defaults; a `llm-cli:` settings section refreshes
     # command/args/models per request without restarting anything.
+    #
+    # `--include-partial-messages` is what makes the answer arrive as it is
+    # written. Without it the child reports a message only once that message is
+    # complete, so a turn whose agent loop runs several tool rounds stays silent
+    # until the last one ends.
     - id: llm-cli
       name: '@deepseek-ai/dsh-llm-cli'
       config:
@@ -22,6 +27,12 @@
           - '--print'
           - '--output-format'
           - 'stream-json'
+          - '--include-partial-messages'
+        # One long-lived ACP child per route instead of one print-mode child per
+        # call: the CLI's cold start is paid once, each conversation keeps its
+        # own session on that child, and the CLI's thinking arrives as its own
+        # block. A CLI without `--acp` needs `transport: print` set back here.
+        transport: acp
         permissionMode: bypassPermissions
 
 # The CLI owns both authentication and the agent loop, so every row that would

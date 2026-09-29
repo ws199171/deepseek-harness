@@ -1,21 +1,29 @@
 /**
  * Line-protocol parsing for a CLI child's stream-json output. CodeBuddy-style
  * CLIs emit one JSON object per line; this parser owns line framing, the event
- * vocabulary it understands, and the cumulative-text delta computation.
+ * vocabulary it understands, and the text-delta computation.
  *
- * The `assistant` event carries the FULL message content so far (cumulative,
- * not incremental), so deltas are computed against the last observed text.
- * Unknown events are ignored: the event vocabulary is merge-extensible and
- * this adapter only consumes what it maps.
+ * Two line families carry answer text, and a run may produce either or both:
+ * `stream_event` frames wrap the model request's own SSE events when the child
+ * is asked for partial messages, so text arrives while it is still being
+ * generated; and the completed `assistant` frame repeats the whole message once
+ * the message ends. Both are measured against the text already observed *for
+ * the message in progress*, which is why `message_start` is reported rather
+ * than ignored — it is the only boundary a caller has for resetting that
+ * measurement. A frame adding nothing beyond the text already seen is ignored,
+ * so a run reading both families emits each character once.
+ *
+ * Unknown events are ignored: the event vocabulary is merge-extensible and this
+ * adapter only consumes what it maps.
  *
  * @module @deepseek-ai/dsh-llm-cli/wire
  */
 
 import type { LlmFailure, TokenUsage } from '@deepseek-ai/dsh-llm'
 
-/** One emitted text delta from an assistant event. */
+/** One emitted text delta, from a partial message or from a completed one. */
 export interface CliTextDelta {
-  /** Newly observed text since the previous assistant event. */
+  /** Newly observed text since the previous frame of the message in progress. */
   text: string
 }
 
@@ -27,6 +35,7 @@ export type CliTerminal =
 
 /** What one parsed line contributes to the adapter. */
 export type CliLineEvent =
+  | { kind: 'message-start' }
   | { kind: 'text'; delta: CliTextDelta }
   | { kind: 'terminal'; terminal: CliTerminal }
   | { kind: 'ignored' }
@@ -40,7 +49,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 /** Parse one line as JSON; a non-JSON line is a diagnostic outside the protocol. */
 function parseJson(text: string): unknown {
   try {
-    return JSON.parse(text) as unknown
+    return JSON.parse(text)
   } catch {
     return undefined
   }
@@ -100,9 +109,33 @@ function terminalOf(record: Record<string, unknown>): CliTerminal {
 }
 
 /**
+ * Read the SSE event a partial-message line wraps.
+ * @param record - the parsed stream-json line.
+ * @returns the wrapped event, or undefined when the line is not one.
+ */
+function streamEventOf(record: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (record.type !== 'stream_event') return undefined
+  return asRecord(record.event)
+}
+
+/**
+ * Read the text one SSE event contributes to the message being generated.
+ * @param event - the wrapped SSE event.
+ * @returns the incremental text, or undefined for any event that carries none.
+ */
+function partialTextOf(event: Record<string, unknown>): string | undefined {
+  if (event.type !== 'content_block_delta') return undefined
+  const delta = asRecord(event.delta)
+  if (delta === undefined || delta.type !== 'text_delta') return undefined
+  const text = delta.text
+  // An empty delta would open a text block for nothing.
+  return typeof text === 'string' && text.length > 0 ? text : undefined
+}
+
+/**
  * Parse one line of CLI stream-json output.
  * @param line - one raw stdout line (already stripped of its newline).
- * @param lastText - the full text observed so far; deltas are computed against it.
+ * @param lastText - the text observed so far for the message in progress; a delta is measured against it.
  * @returns the event this line contributes, or undefined when the line is blank.
  */
 export function parseCliLine(line: string, lastText: string): CliLineEvent | undefined {
@@ -110,6 +143,12 @@ export function parseCliLine(line: string, lastText: string): CliLineEvent | und
   if (trimmed.length === 0) return undefined
   const record = asRecord(parseJson(trimmed))
   if (record === undefined) return { kind: 'ignored' }
+  const streamEvent = streamEventOf(record)
+  if (streamEvent !== undefined) {
+    if (streamEvent.type === 'message_start') return { kind: 'message-start' }
+    const text = partialTextOf(streamEvent)
+    return text === undefined ? { kind: 'ignored' } : { kind: 'text', delta: { text } }
+  }
   if (record.type === 'assistant') {
     const full = messageText(record)
     // A repeated, shortened, or empty assistant frame contributes no new text.

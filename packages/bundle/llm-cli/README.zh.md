@@ -47,7 +47,7 @@ dsh plugin --profile work add @deepseek-ai/dsh-llm-cli-bundle
 
 ### 配置
 
-插入的行携带 CodeBuddy 所需的东西：`command: codebuddy`、`args: ['--print', '--output-format', 'stream-json']` 与 `permissionMode: bypassPermissions`。profile 自己的 patch 按行 id 覆盖它们，因此无需 fork 本包就能指向另一份检出、另一套提示词协议或更严格的权限模式。
+插入的行携带 CodeBuddy 所需的东西：`command: codebuddy`、`args: ['--print', '--output-format', 'stream-json', '--include-partial-messages']`、`transport: acp` 与 `permissionMode: bypassPermissions`。profile 自己的 patch 按行 id 覆盖它们，因此无需 fork 本包就能指向另一份检出、另一套提示词协议或更严格的权限模式。
 
 ```yaml
 - id: llm-cli
@@ -114,6 +114,7 @@ dsh plugin --profile work add @deepseek-ai/dsh-llm-cli-bundle
 <a id="known-limitations-and-deferred-work"></a>
 
 - **它替换 API 源，而不是在其旁新增**——安装本 bundle 会禁用 `llm-deepseek`、`llm-deepseek-account` 与 `llm-pi-ai`，因此仍需要某个 HTTP 提供方的部署必须在后续层重新启用这些行。
+- **CLI 必须支持 ACP**——插入的行把 CLI 作为单个常驻 ACP agent 运行（`transport: acp`），冷启动因此不会落在每次调用上。若所用的 CLI 没有 `--acp`，需在后续层把 `transport` 设回 `print`，代价是每次调用启动一次子进程。
 - **CLI 必须已安装并已登录**——本 bundle 只配置命令名，完全不涉及认证；缺少或未登录的 `codebuddy` 会在第一轮失败，而不是在启动时失败。
 - **`DSH_CLI_MODEL` 在应用 patch 时读取**——默认模型行在树组合期间解析该变量，因此改动它需要重启，而不是一次设置编辑。
 - **`bypassPermissions` 是随包默认值**——子进程继承启动进程的 OS 访问权，因此需要隔离的部署必须在自己的 patch 中把 `permissionMode` 调低。

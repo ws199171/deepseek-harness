@@ -55,15 +55,28 @@ Every field is optional in YAML and defaults to CodeBuddy. A missing section sti
   name: '@deepseek-ai/dsh-llm-cli'
   config:
     command: codebuddy
-    args: ['--print', '--output-format', 'stream-json']
+    args: ['--print', '--output-format', 'stream-json', '--include-partial-messages']
+    acpArgs: ['--acp']
     modelDiscoveryArgs: ['--help']
     models: []
+    transport: print
     permissionMode: bypassPermissions
     sessionIdArg: --session-id
     disposeGraceMs: 3000
 ```
 
 `cwd` pins the child's workspace for every request; leaving it out lets a persistent session run in the workspace the session store records, falling back to the process directory. `sessionIdArg` set to an empty string disables CLI-side sessions, which makes every call stateless. `env` is layered over the seam's scrubbed base.
+
+### Transports
+
+`transport` decides how a call reaches the CLI, and the two modes differ in what they pay per call:
+
+- `print` (the default) starts the arguments in `args` for that call and reads its `stream-json` stdout. `--include-partial-messages` is what makes the answer arrive while the CLI is still generating it; without it the caller waits out the whole run and then receives one message.
+- `acp` starts one child per route with `acpArgs` and prompts a session on it, so the CLI's cold start is paid once rather than once per call. The conversation's ACP session owns its history, and the CLI's own thinking arrives as its own block instead of staying inside the child.
+
+### Bounding the delegated loop
+
+`tools`, `maxTurns`, and `effort` reach the CLI's own agent loop, which is otherwise unbounded from here when it is. An empty `tools` disables every built-in tool, which is the closest this route comes to a bare model call: the CLI answers without running anything. `maxTurns` caps the CLI's agentic turns, and `effort` names the reasoning level it forwards. Leaving any of the three out leaves the CLI's own default in charge — which is the right choice unless the deployment has a reason to want otherwise.
 
 ### Model ids
 

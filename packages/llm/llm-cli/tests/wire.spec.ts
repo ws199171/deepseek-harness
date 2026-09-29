@@ -11,6 +11,11 @@ function assistantFrame(text: string): string {
   return frame({ type: 'assistant', message: { content: [{ type: 'text', text }] } })
 }
 
+/** Render one partial-message frame wrapping the given SSE event. */
+function partialFrame(event: unknown): string {
+  return frame({ type: 'stream_event', event })
+}
+
 describe('parseCliLine framing', () => {
   it('returns undefined for blank lines', () => {
     expect(parseCliLine('', '')).toBeUndefined()
@@ -48,6 +53,51 @@ describe('parseCliLine assistant frames', () => {
       message: { content: ['scalar', { type: 'tool_use', name: 'x' }, { type: 'text', text: 7 }] },
     })
     expect(parseCliLine(mixed, '')).toEqual({ kind: 'ignored' })
+  })
+})
+
+describe('parseCliLine partial-message frames', () => {
+  it('reports the boundary a caller measures the next message against', () => {
+    // The completed message repeats its own text, so the boundary is what keeps
+    // one message from being measured against an earlier one.
+    expect(parseCliLine(partialFrame({ type: 'message_start' }), 'text from an earlier message'))
+      .toEqual({ kind: 'message-start' })
+  })
+
+  it('reads the incremental text of a text delta', () => {
+    const line = partialFrame({ type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: 'Hel' } })
+
+    expect(parseCliLine(line, '')).toEqual({ kind: 'text', delta: { text: 'Hel' } })
+    // A partial delta is incremental rather than cumulative, so text already
+    // observed does not shorten it.
+    expect(parseCliLine(line, 'anything')).toEqual({ kind: 'text', delta: { text: 'Hel' } })
+  })
+
+  it('ignores every other SSE event', () => {
+    expect(parseCliLine(partialFrame({ type: 'message_stop' }), '')).toEqual({ kind: 'ignored' })
+    expect(parseCliLine(partialFrame({ type: 'message_delta', delta: { stop_reason: 'end_turn' } }), ''))
+      .toEqual({ kind: 'ignored' })
+    expect(parseCliLine(partialFrame({ type: 'content_block_start', index: 1, content_block: { type: 'text' } }), ''))
+      .toEqual({ kind: 'ignored' })
+    expect(parseCliLine(partialFrame({ type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: 'hmm' } }), ''))
+      .toEqual({ kind: 'ignored' })
+  })
+
+  it('ignores a delta that carries no text worth emitting', () => {
+    // An empty delta would open a text block for nothing, and a non-string one
+    // is not text this protocol can read.
+    expect(parseCliLine(partialFrame({ type: 'content_block_delta', delta: { type: 'text_delta', text: '' } }), ''))
+      .toEqual({ kind: 'ignored' })
+    expect(parseCliLine(partialFrame({ type: 'content_block_delta', delta: { type: 'text_delta', text: 7 } }), ''))
+      .toEqual({ kind: 'ignored' })
+    expect(parseCliLine(partialFrame({ type: 'content_block_delta' }), '')).toEqual({ kind: 'ignored' })
+    expect(parseCliLine(partialFrame({ type: 'content_block_delta', delta: 'text' }), '')).toEqual({ kind: 'ignored' })
+  })
+
+  it('ignores a partial-message line whose wrapped event is not a record', () => {
+    expect(parseCliLine(frame({ type: 'stream_event' }), '')).toEqual({ kind: 'ignored' })
+    expect(parseCliLine(frame({ type: 'stream_event', event: 'message_start' }), '')).toEqual({ kind: 'ignored' })
+    expect(parseCliLine(frame({ type: 'stream_event', event: ['message_start'] }), '')).toEqual({ kind: 'ignored' })
   })
 })
 
