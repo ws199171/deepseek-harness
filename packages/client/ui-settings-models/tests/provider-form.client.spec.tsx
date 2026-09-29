@@ -8,6 +8,7 @@ import { bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { ModelsSection, providerCopy } from '../src/client/ModelsSection.tsx'
+import { ProviderEditor } from '../src/client/ProviderEditor.tsx'
 import type { ModelsSectionInjected, ModelsSectionProps } from '../src/client/ModelsSection.tsx'
 import { CustomProviderCard } from '../src/client/CustomProviderCard.tsx'
 import { formatCapacity, parseCapacity } from '../src/client/DeepSeekModelsEditor.tsx'
@@ -1662,5 +1663,117 @@ describe('API key field', () => {
     await waitFor(() => { expect(mutate).toHaveBeenCalledOnce() })
     await waitFor(() => { expect(load).toHaveBeenCalledOnce() })
     expect(screen.queryByRole('textbox', { name: en.customRoute })).toBeNull()
+  })
+})
+
+describe('CLI route card', () => {
+  /** The CLI route's section shape, as the host serializes it. */
+  const CliConfig = Schema.object({
+    command: Schema.string(),
+    args: Schema.array(Schema.string()),
+    models: Schema.array(Schema.object({ id: Schema.string().required(), name: Schema.string() })),
+  })
+
+  /** The CLI route's namespace: the card owns the whole section, as its entry does. */
+  function cliNamespace(user: Record<string, JsonValue>): SettingsNamespaceView {
+    return {
+      ns: 'llm-cli',
+      schema: JSON.parse(JSON.stringify(CliConfig.toJSON())) as JsonValue,
+      value: user,
+      base: {},
+      user,
+      autoGenerate: false,
+      applies: 'live',
+      secrets: [],
+      revision: 1,
+    }
+  }
+
+  /** Mount the route's card over a scripted Host that answers the CLI's listing. */
+  function mountCliCard(discover: ReturnType<typeof vi.fn>) {
+    const namespace = cliNamespace({})
+    const mutate = vi.fn(() => Promise.resolve(remoteOk(namespace)))
+    const face = {
+      llm: { discoverModels: discover },
+      settings: { mutate },
+      credentials: {
+        describe: vi.fn((refs: string[]) => Promise.resolve(remoteOk(
+          Object.fromEntries(refs.map(ref => [ref, { configured: false, writable: true }])),
+        ))),
+        set: vi.fn(),
+        unset: vi.fn(),
+      },
+    }
+    render(
+      <ProviderEditor
+        provider="codebuddy-cli"
+        displayName="CodeBuddy CLI"
+        declared
+        namespace={namespace}
+        schema={settingsSchema}
+        settingsPath={[]}
+        t={t}
+        readOnly={false}
+        operations={operationsWith(face)}
+        onClose={() => {}}
+      />,
+    )
+    return { mutate }
+  }
+
+  it('offers the ids the CLI itself lists and writes the chosen ones', async () => {
+    const discover = vi.fn(() => Promise.resolve(ok([{ id: 'gpt-6-sol' }, { id: 'claude-sonnet-5' }])))
+    const { mutate } = mountCliCard(discover)
+
+    // The card is no longer the patch-file hint alone: it reads the route it
+    // owns, so the models the CLI reports are what can be chosen here.
+    expect(screen.queryByText(`${en.advancedHint} (llm-cli)`)).toBeNull()
+    expect(screen.getByText(en.cliHint)).toBeTruthy()
+    await waitFor(() => { expect(discover).toHaveBeenCalledWith('llm-cli', { provider: 'codebuddy-cli' }) })
+
+    fireEvent.click(screen.getByRole('button', { name: en.fetchModels }))
+    await screen.findByText(en.fetchTitle)
+    // Candidates the list does not hold yet arrive already picked.
+    fireEvent.click(screen.getByText(en.fetchAdopt))
+    fireEvent.click(screen.getByText(en.apply))
+
+    await waitFor(() => { expect(mutate).toHaveBeenCalled() })
+    expect(firstMutate(mutate).ops).toEqual([
+      { op: 'set', path: ['models'], value: [{ id: 'gpt-6-sol' }, { id: 'claude-sonnet-5' }] },
+    ])
+  })
+
+  it('keeps ids the deployment pinned, which the CLI listing does not replace', async () => {
+    const discover = vi.fn(() => Promise.resolve(ok([{ id: 'gpt-6-sol' }])))
+    const pinned = { id: 'gpt-6-sol', name: 'Sol (pinned)' }
+    const namespace = cliNamespace({ models: [pinned] })
+    const mutate = vi.fn(() => Promise.resolve(remoteOk(namespace)))
+    const face = {
+      llm: { discoverModels: discover },
+      settings: { mutate },
+      credentials: {
+        describe: vi.fn(() => Promise.resolve(remoteOk({}))), set: vi.fn(), unset: vi.fn(),
+      },
+    }
+    render(
+      <ProviderEditor
+        provider="codebuddy-cli"
+        displayName="CodeBuddy CLI"
+        declared
+        namespace={namespace}
+        schema={settingsSchema}
+        settingsPath={[]}
+        t={t}
+        readOnly={false}
+        operations={operationsWith(face)}
+        onClose={() => {}}
+      />,
+    )
+
+    // A declared row is the row the card shows, label and all.
+    await waitFor(() => { expect(screen.getByLabelText<HTMLInputElement>(`${en.modelId} 1`).value).toBe('gpt-6-sol') })
+    expect(screen.getByLabelText<HTMLInputElement>(`${en.modelName} 1`).value).toBe('Sol (pinned)')
+    fireEvent.click(screen.getByText(en.apply))
+    await waitFor(() => { expect(mutate).not.toHaveBeenCalled() })
   })
 })
