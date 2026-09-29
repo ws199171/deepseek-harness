@@ -8,8 +8,7 @@
  * pipes; this file covers the branches a real child makes hard to reach.
  */
 
-import { EventEmitter } from 'node:events'
-import type { Readable } from 'node:stream'
+import { Readable } from 'node:stream'
 import { describe, expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import {
@@ -24,8 +23,12 @@ import type { CliConnectionOptions } from '../src/adapter.ts'
 
 type SessionId = NonNullable<GenerateOptions['sessionId']>
 
-/** A stdout the test publishes on demand, which is what makes ordering exact. */
-class ManualStdout extends EventEmitter {
+/**
+ * A stdout the test publishes on demand, which is what makes ordering exact. It
+ * is a `Readable` so the seam's handle needs no cast, but it reads no source:
+ * every event it reports is one the test raised, on the calling turn.
+ */
+class ManualStdout extends Readable {
   /** Publish one chunk, as the pipe delivers it. */
   data(text: string): void {
     this.emit('data', Buffer.from(text))
@@ -40,6 +43,9 @@ class ManualStdout extends EventEmitter {
   fail(cause: Error): void {
     this.emit('error', cause)
   }
+
+  /** Nothing to read: the test pushes every chunk this stream reports. */
+  override _read(): void {}
 }
 
 /** One scripted CLI child: a stdout the test drives and an outcome it settles. */
@@ -89,7 +95,7 @@ class FakeChild {
   handle(): SubprocessHandle {
     return {
       stdin: undefined,
-      stdout: this.exposesStdout ? this.stream as unknown as Readable : undefined,
+      stdout: this.exposesStdout ? this.stream : undefined,
       stderr: undefined,
       control: undefined,
       collected: {},
@@ -140,7 +146,9 @@ const FACTS: CliConnectionOptions = {
   useSessionCwd: true,
   env: { NO_COLOR: '1' },
   sessionIdArg: '--session-id',
+  transport: 'print',
   permissionMode: 'bypassPermissions',
+  acpArgv: ['codebuddy', '--acp'],
   disposeGraceMs: 3_000,
   discoveryArgv: ['codebuddy', '--help'],
   discoveryTimeoutMs: 15_000,
@@ -154,16 +162,23 @@ interface HarnessOptions {
   facts?: Partial<CliConnectionOptions>
   exposesStdout?: boolean
   refusesJoin?: boolean
-  spawnThrows?: Error
+  /**
+   * The value the spawn seam throws. Typed as what it is — a raw value — because
+   * one case pins how a non-Error throw reaches the caller.
+   */
+  spawnThrows?: unknown
   resolveSessionCwd?: (sessionId: SessionId) => string | undefined
   withResolver?: boolean
 }
 
-/** An adapter over a scripted spawn, plus the spawner the test drives it with. */
+/** An adapter over a scripted spawn, plus the spawner and facts the test drives it with. */
 function harness(options: HarnessOptions = {}) {
   const spawner = new FakeSpawner(options.exposesStdout ?? true, options.refusesJoin ?? false)
+  // The adapter re-reads these per operation, so a test may adjust one fact
+  // before it drives a run.
+  const facts: CliConnectionOptions = { ...FACTS, ...options.facts }
   const adapter = new CliAdapter({
-    options: () => ({ ...FACTS, ...options.facts }),
+    options: () => facts,
     spawn: options.spawnThrows === undefined
       ? spawner.spawn
       : () => { throw options.spawnThrows },
@@ -171,7 +186,7 @@ function harness(options: HarnessOptions = {}) {
       ? {}
       : { resolveSessionCwd: options.resolveSessionCwd ?? (() => undefined) },
   })
-  return { adapter, spawner }
+  return { adapter, facts, spawner }
 }
 
 /** A human-authored user message. */
@@ -197,6 +212,19 @@ function frame(value: unknown): string {
 /** One cumulative assistant frame carrying the full text so far. */
 function assistantFrame(text: string): string {
   return frame({ type: 'assistant', message: { content: [{ type: 'text', text }] } })
+}
+
+/** One partial-message frame opening a CLI message. */
+function messageStartFrame(): string {
+  return frame({ type: 'stream_event', event: { type: 'message_start' } })
+}
+
+/** One partial-message frame carrying incremental answer text. */
+function textDeltaFrame(text: string): string {
+  return frame({
+    type: 'stream_event',
+    event: { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text } },
+  })
 }
 
 /** One terminal result frame. */
@@ -254,6 +282,29 @@ describe('CliAdapter stream translation', () => {
       { type: 'text-delta', index: 0, text: 'lo' },
       { type: 'block-end', index: 0, block: { type: 'text', text: 'Hello' } },
       { type: 'usage', usage: { inputTokens: 5, outputTokens: 2 } },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ])
+  })
+
+  it('streams the partial-message deltas as they arrive, without repeating them', async () => {
+    const created = harness()
+    const chunks = await run(created, ask(), (child) => {
+      // A partial-message run carries the text twice: once as deltas while the
+      // CLI is still generating, once inside the completed message. Only the
+      // deltas reach the caller early, and the completed frame adds nothing.
+      child.write(messageStartFrame())
+      child.write(textDeltaFrame('Hel'))
+      child.write(textDeltaFrame('lo'))
+      child.write(assistantFrame('Hello'))
+      child.write(resultFrame({ subtype: 'success' }))
+      child.finish()
+    })
+
+    expect(chunks).toEqual([
+      { type: 'block-start', index: 0, blockType: 'text' },
+      { type: 'text-delta', index: 0, text: 'Hel' },
+      { type: 'text-delta', index: 0, text: 'lo' },
+      { type: 'block-end', index: 0, block: { type: 'text', text: 'Hello' } },
       { type: 'finish', reason: { kind: 'stop' } },
     ])
   })
@@ -437,6 +488,32 @@ describe('CliAdapter invocation', () => {
     })
   })
 
+  it('bounds the delegated loop only when the facts carry a bound', async () => {
+    const bare = harness()
+    await run(bare, ask(), (child) => {
+      child.write(resultFrame({ subtype: 'success' }))
+      child.finish()
+    })
+    const bareArgv = bare.spawner.specs[0]?.argv ?? []
+    expect(bareArgv).not.toContain('--tools')
+    expect(bareArgv).not.toContain('--max-turns')
+    expect(bareArgv).not.toContain('--effort')
+
+    const bounded = harness({ facts: { tools: '', maxTurns: 1, effort: 'low' } })
+    await run(bounded, ask(), (child) => {
+      child.write(resultFrame({ subtype: 'success' }))
+      child.finish()
+    })
+    const argv = bounded.spawner.specs[0]?.argv ?? []
+    // An empty tool set travels as an empty argument: it is the CLI's spelling
+    // for "run no tool at all", not a missing option.
+    expect(argv.slice(argv.indexOf('--tools'), argv.indexOf('--tools') + 2)).toEqual(['--tools', ''])
+    expect(argv.slice(argv.indexOf('--max-turns'), argv.indexOf('--max-turns') + 2)).toEqual(['--max-turns', '1'])
+    expect(argv.slice(argv.indexOf('--effort'), argv.indexOf('--effort') + 2)).toEqual(['--effort', 'low'])
+    // Whatever bounds the loop, the prompt stays the trailing positional one.
+    expect(argv.at(-1)).toBe('User: hi')
+  })
+
   it('flattens the whole conversation for a stateless call and omits the session argument', async () => {
     const created = harness()
     await run(
@@ -461,7 +538,10 @@ describe('CliAdapter invocation', () => {
   })
 
   it('omits the session argument when the resolved facts disable it', async () => {
-    const created = harness({ facts: { sessionIdArg: undefined } })
+    const created = harness()
+    // A stateless resolve carries no session argument at all, rather than an
+    // empty one, so the fact itself is cleared.
+    delete created.facts.sessionIdArg
     await run(created, ask({ sessionId: brandString<SessionId>('sess-1') }), (child) => {
       child.write(resultFrame({ subtype: 'success' }))
       child.finish()
@@ -582,7 +662,7 @@ describe('CliAdapter refusals', () => {
   })
 
   it('reports a non-Error start failure with its stringified cause', async () => {
-    const created = harness({ spawnThrows: 'not an Error' as unknown as Error })
+    const created = harness({ spawnThrows: 'not an Error' })
     const chunks: StreamChunk[] = []
     for await (const chunk of created.adapter.stream(ask())) chunks.push(chunk)
 

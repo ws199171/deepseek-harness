@@ -19,7 +19,7 @@
  *   name: '@deepseek-ai/dsh-llm-cli'
  *   config:
  *     command: codebuddy
- *     args: ['--print', '--output-format', 'stream-json']
+ *     args: ['--print', '--output-format', 'stream-json', '--include-partial-messages']
  *     permissionMode: bypassPermissions
  * ```
  *
@@ -29,22 +29,30 @@
 import type { Context, Fiber } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-settings'
-import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, LlmDiscoveredModel } from '@deepseek-ai/dsh-llm'
 import { CliAdapter } from './adapter.ts'
-import { Config, plainOptions, resolveAdapterOptions } from './config.ts'
+import type { CliCatalogModel } from './adapter.ts'
+import { Config, mergeCatalog, plainOptions, resolveAdapterOptions } from './config.ts'
 import type { Options, ResolvedCliOptions } from './config.ts'
 import { discoverCliModels } from './discovery.ts'
 
 export {
   CliAdapter,
+  CLI_TRANSPORTS,
+  CODEBUDDY_EFFORT_LEVELS,
   CODEBUDDY_PERMISSION_MODES,
+  DEFAULT_TRANSPORT,
 } from './adapter.ts'
 export type {
   CliAdapterOptions,
   CliCatalogModel,
   CliConnectionOptions,
+  CliTransport,
+  CodeBuddyEffort,
   CodeBuddyPermissionMode,
 } from './adapter.ts'
+export { AcpTransport } from './acp.ts'
+export type { AcpPermissionOption, AcpTransportOptions, AcpTurnEvent } from './acp.ts'
 export {
   Config,
   DEFAULT_ARGS,
@@ -85,6 +93,14 @@ export function apply(ctx: Context, config: Config): void {
   const settingsNs = ctx.fiber.entry?.options.id ?? name
 
   /**
+   * Model entries the CLI last advertised. The picker reads this route's
+   * catalog through `listModels`, so the CLI's own listing has to reach the
+   * resolved facts; discovery is best-effort, and an unreachable CLI leaves the
+   * configured catalog standing alone.
+   */
+  let advertised: readonly CliCatalogModel[] = []
+
+  /**
    * Executable facts for the current configuration, re-resolved per operation
    * so a settings edit reaches the very next request without re-registering the
    * route. Nothing about this route is captured at registration time — the
@@ -93,9 +109,43 @@ export function apply(ctx: Context, config: Config): void {
    * commits a snapshot only after {@link apply}'s `internal/config` listener has
    * accepted it, which is why a resolve here can no longer fail.
    */
-  const options = (): ResolvedCliOptions => resolveAdapterOptions(plainOptions(config), process.cwd())
+  const options = (): ResolvedCliOptions => {
+    const current = plainOptions(config)
+    return resolveAdapterOptions(
+      { ...current, models: mergeCatalog(current.models ?? [], advertised) },
+      process.cwd(),
+    )
+  }
   // Fail loud at load for a broken composition entry.
   options()
+
+  /**
+   * Probe the CLI for the models it advertises and remember them for this
+   * route, so a picker offers the CLI's real ids instead of an empty list.
+   * @param signal - caller cancellation, honored beside the discovery bound.
+   * @returns the advertised ids, declared entries the CLI did not report last.
+   */
+  const probeCatalog = async (signal?: AbortSignal): Promise<readonly LlmDiscoveredModel[]> => {
+    const current = plainOptions(config)
+    const facts = resolveAdapterOptions(current, process.cwd())
+    const models = await discoverCliModels({
+      argv: facts.discoveryArgv,
+      cwd: facts.cwd,
+      timeoutMs: facts.discoveryTimeoutMs,
+      configured: current.models ?? [],
+      spawn: spec => ctx.subprocess.spawn(spec),
+      ...signal === undefined ? {} : { signal },
+    })
+    advertised = models.map(model => (model.name === undefined ? { id: model.id } : { id: model.id, name: model.name }))
+    return models
+  }
+  // One probe per composition, rather than only when a Models page asks: the
+  // listing is what makes a model selectable in the first place.
+  void probeCatalog().catch((error: unknown) => {
+    // Discovery reports a child that never reported as an empty catalog; a
+    // rejection here is the probe itself failing, and the configured list stands.
+    ctx.logger.warn('llm-cli: model discovery failed: %s', error instanceof Error ? error.message : String(error))
+  })
 
   // A settings write is judged where it lands, so the Models page reports an
   // unusable section instead of the next request failing mysteriously. The
@@ -119,18 +169,12 @@ export function apply(ctx: Context, config: Config): void {
     { provider: PROVIDER, displayName: DISPLAY_NAME, settingsNs, settingsPath: [] },
   ])
   ctx.llm.registerAdapter([PROVIDER], adapter)
+  // The ACP transport keeps a child alive for the route's lifetime, so unloading
+  // the route has to end that child with it.
+  ctx.effect(() => () => adapter.dispose())
 
   // Offered for the whole namespace rather than per route: the Models page
-  // interrogates the CLI itself, and a CLI has no endpoint to name.
-  ctx.llm.registerModelDiscovery(settingsNs, async (_request, signal) => {
-    const facts = options()
-    return discoverCliModels({
-      argv: facts.discoveryArgv,
-      cwd: facts.cwd,
-      timeoutMs: facts.discoveryTimeoutMs,
-      configured: facts.models,
-      spawn: spec => ctx.subprocess.spawn(spec),
-      signal,
-    })
-  })
+  // interrogates the CLI itself, and a CLI has no endpoint to name. An
+  // interrogation doubles as a refresh of what this route advertises.
+  ctx.llm.registerModelDiscovery(settingsNs, (_request, signal) => probeCatalog(signal))
 }

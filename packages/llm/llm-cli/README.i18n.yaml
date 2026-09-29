@@ -26,6 +26,12 @@
 /deepseek-ai-dsh-llm-cli/use-this-package/configure-the-route:
   en: c76dfa6eb471d30b
   zh: f3ab87132b86113b
+/deepseek-ai-dsh-llm-cli/use-this-package/transports:
+  en: 029abd5977198dd4
+  zh: c761294444388b2f
+/deepseek-ai-dsh-llm-cli/use-this-package/bounding-the-delegated-loop:
+  en: 60b05dc405a809d5
+  zh: 3ebf33c08bde7eb0
 /deepseek-ai-dsh-llm-cli/use-this-package/model-ids:
   en: eb42e31b1f86cfe0
   zh: 5536d4bf102ea0e1

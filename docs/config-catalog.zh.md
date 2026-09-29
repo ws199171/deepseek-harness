@@ -1712,7 +1712,7 @@ export interface Config {
 
 - `inject`: `llm` · `subprocess`
 - `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/llm/llm-cli/src/config.ts:46`](../packages/llm/llm-cli/src/config.ts)
+- `source`: [`packages/llm/llm-cli/src/config.ts:70`](../packages/llm/llm-cli/src/config.ts)
 
 ```ts config-catalog
 /**
@@ -1726,6 +1726,8 @@ export interface Config {
   command: Volatile<string>
   /** Arguments producing stream-json on stdout; the prompt is appended last. */
   args: Volatile<string[]>
+  /** Arguments that start the CLI as a long-lived ACP agent; used by the `acp` transport. */
+  acpArgs: Volatile<string[]>
   /** Arguments that print the CLI's supported model ids without starting an agent session. */
   modelDiscoveryArgs: Volatile<string[]>
   /** Hard ceiling in milliseconds for one model-discovery child. */
@@ -1738,8 +1740,26 @@ export interface Config {
   env: Volatile<Record<string, string>>
   /** Argument carrying the persistent session id; an empty value disables CLI-side sessions. */
   sessionIdArg: Volatile<string>
+  /**
+   * How a call reaches the CLI: `print` starts a child per call, `acp` keeps
+   * one child per route and prompts a session on it.
+   */
+  transport: Volatile<CliTransport>
   /** The CLI's own tool-approval policy for the delegated run. */
   permissionMode: Volatile<CodeBuddyPermissionMode>
+  /**
+   * Tool set the delegated run restricts itself to. An empty value disables
+   * every built-in tool, which reduces the CLI to a model call; absent leaves
+   * the CLI's own default set.
+   */
+  tools: Volatile<string | undefined>
+  /**
+   * Cap on the CLI's own agentic turns. Absent leaves the CLI's own default,
+   * which is what lets it run a whole tool loop inside one call.
+   */
+  maxTurns: Volatile<number | undefined>
+  /** Reasoning effort the CLI forwards to the model; absent leaves its own default. */
+  effort: Volatile<CodeBuddyEffort | undefined>
   /** Grace in milliseconds for child process-tree termination. */
   disposeGraceMs: Volatile<number>
 }
@@ -1752,8 +1772,19 @@ export interface CliCatalogModel {
   name?: string
 }
 
+/**
+ * How one call reaches the CLI: `print` starts a child per call and reads its
+ * stream-json, `acp` keeps one child per route and prompts a session on it.
+ * `print` is the default because it needs nothing of the CLI but its own
+ * non-interactive mode.
+ */
+export type CliTransport = typeof CLI_TRANSPORTS[number]
+
 /** The delegated CLI's policy for approving tools inside its own agent loop. */
 export type CodeBuddyPermissionMode = typeof CODEBUDDY_PERMISSION_MODES[number]
+
+/** Reasoning effort the delegated CLI forwards to the model. */
+export type CodeBuddyEffort = typeof CODEBUDDY_EFFORT_LEVELS[number]
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-cli -->
 

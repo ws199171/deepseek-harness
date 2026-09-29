@@ -47,7 +47,7 @@ Installing the package activates it as a bundle layer: the profile records it in
 
 ### Configuration
 
-The inserted row carries what CodeBuddy needs: `command: codebuddy`, `args: ['--print', '--output-format', 'stream-json']`, and `permissionMode: bypassPermissions`. A profile's own patch overrides them by row id, so no fork of this package is needed to point at another checkout, another prompt protocol, or a stricter permission mode.
+The inserted row carries what CodeBuddy needs: `command: codebuddy`, `args: ['--print', '--output-format', 'stream-json', '--include-partial-messages']`, `transport: acp`, and `permissionMode: bypassPermissions`. A profile's own patch overrides them by row id, so no fork of this package is needed to point at another checkout, another prompt protocol, or a stricter permission mode.
 
 ```yaml
 - id: llm-cli
@@ -113,6 +113,7 @@ The patch contributes no request prefix, so it neither breaks nor extends provid
 
 <a id="known-limitations-and-deferred-work"></a>
 
+- **The CLI must speak ACP** — the inserted row runs the CLI as one long-lived ACP agent (`transport: acp`), which is what keeps the cold start off every call. A CLI without `--acp` needs `transport: print` set back in a later layer, and pays a child start per call.
 - **It replaces the API source rather than adding to it** — installing the bundle disables `llm-deepseek`, `llm-deepseek-account`, and `llm-pi-ai`, so a deployment that still needs an HTTP provider must re-enable those rows in a later layer.
 - **The CLI must already be installed and signed in** — the bundle configures the command name and nothing about authentication; a missing or signed-out `codebuddy` fails at the first turn rather than at startup.
 - **`DSH_CLI_MODEL` is read when the patch is applied** — the default-model row resolves the variable while the tree composes, so changing it needs a restart rather than a settings edit.

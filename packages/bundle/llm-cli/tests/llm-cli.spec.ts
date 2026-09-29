@@ -73,8 +73,13 @@ describe('dsh-llm-cli-bundle', () => {
     expect(patches[0]?.insert?.[0]?.config).toEqual({
       command: 'codebuddy',
       // The trailing positional prompt is the only channel this CLI reads, so
-      // the base invocation must put it on stdout as stream-json.
-      args: ['--print', '--output-format', 'stream-json'],
+      // the base invocation must put it on stdout as stream-json, with partial
+      // messages on: without them the route answers only after the child's
+      // whole agent loop, tool rounds included, has run.
+      args: ['--print', '--output-format', 'stream-json', '--include-partial-messages'],
+      // One ACP child per route, so the CLI's cold start is paid once instead of
+      // once per call. A CLI without `--acp` has to be put back on `print`.
+      transport: 'acp',
       // CodeBuddy's print mode has no approval channel; without a
       // non-interactive policy its own tool calls are refused instead of run.
       permissionMode: 'bypassPermissions',
