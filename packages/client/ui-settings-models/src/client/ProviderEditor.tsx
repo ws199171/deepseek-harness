@@ -41,7 +41,7 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
-type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
+type EditorLayout = 'deepseek' | 'pi-ai' | 'cli' | 'unknown'
 
 
 
@@ -141,6 +141,7 @@ export function pathOps(
 function layoutOf(ns: string): EditorLayout {
   if (ns === 'llm-deepseek') return 'deepseek'
   if (ns === 'llm-pi-ai') return 'pi-ai'
+  if (ns === 'llm-cli') return 'cli'
   return 'unknown'
 }
 
@@ -346,7 +347,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
    * narrowed so the per-family branches below are total: an unknown namespace
    * renders the hint instead and never reaches this body.
    */
-  const curatedFields = (family: 'deepseek' | 'pi-ai'): ReactNode => {
+  const curatedFields = (family: 'deepseek' | 'pi-ai' | 'cli'): ReactNode => {
     // What a hand-declared route names for itself and nothing else can supply.
     // A whole-section `llm-deepseek` profile is a composition fact with no
     // per-route identity for its schema to carry, hence the family test.
@@ -372,6 +373,24 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
         setDraft(current => schema.setPath(current, ['models'], next))
       },
       onReset: () => { setDraft(current => schema.deletePath(current, ['models'])) },
+    }
+    if (family === 'cli') {
+      // The CLI carries its own sign-in and its own agent loop, so the only
+      // per-route choice this page owns is which of its models to offer beside
+      // the ids the CLI itself lists. Everything else about the route stays in
+      // the composition, which is what the hint above the rows points at.
+      return (
+        <>
+          <p className={styles['advancedHint']}>{t('cliHint')}</p>
+          <ModelListEditor
+            {...catalogProps}
+            catalogProvider={props.provider}
+            probe={probe}
+            operations={operations}
+            onBusyChange={setListBusy}
+          />
+        </>
+      )
     }
     if (accountProvider) return <DeepSeekModelsEditor {...catalogProps}
       defaultContextWindow={typeof defaultContextWindow === 'number' ? defaultContextWindow : undefined}
