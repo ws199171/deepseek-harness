@@ -445,6 +445,14 @@
     - id: ui-trajectory
       name: '@deepseek-ai/dsh-client-ui-trajectory'
 
+    # The Execution view is an ordinary product surface, not a developer tool:
+    # it contributes a second Conversation target beside Chat and shows one flat
+    # row per step. It is enabled here without configuration so the tab exists in
+    # every Web deployment; the row carries no `config` and the plugin declares
+    # no Config of its own.
+    - id: ui-execution-viewer
+      name: '@deepseek-ai/dsh-client-ui-execution-viewer'
+
 # ── the agent plane moves behind agent presets ─────────────────────────────
 #
 # Every row below composes what ONE agent contributes to the host registries:
