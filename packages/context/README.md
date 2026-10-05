@@ -1,5 +1,5 @@
 ---
-description: "The context group map: request-context plugins that add durable, model-visible context without defining tools, for users and maintainers navigating the group."
+description: "The context group map: request-context plugins that add durable, model-visible context, for users and maintainers navigating the group."
 kind: "package-group"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The context group provides plugins that add model-visible context to each request without defining any tool: workspace instruction files become guidance, `@file` mentions offer path completion, other sessions can be referenced as bounded snapshots, and the model can see the current time and the agent's tmux location. Only `agent-instructions` (`dsh-base`) ships mounted by default; the rest are opt-in. Context is durable: injected instructions and references enter session history as user-role messages, so they persist, replay, and compact like other conversation content. This page maps the group; each package README owns the per-package contract.
+The context group provides plugins that add durable, model-visible context to each request. Most define no tool: workspace instruction files become guidance, `@file` mentions offer path completion, other sessions are referenced as bounded snapshots, and the model sees the current time and tmux location. `context-ledger` is the one member that also registers tools, because its context indexes records the model must read back. `agent-instructions` and `time-context` ship mounted by default; the rest are opt-in. Context is durable: injected instructions and references enter session history as user-role messages, so they persist, replay, and compact. This page maps the group.
 
 ## Table of Contents
 

@@ -195,6 +195,9 @@
       // The CLI model-source bundle is named for the route it mounts, not for
       // its `llm-cli` directory, so the generated aliases skip it.
       "@deepseek-ai/dsh-llm-cli-bundle": ["./packages/bundle/llm-cli/src"],
+      // The ledger's bundle is named for the capability it mounts, not for its
+      // `context-ledger` directory, so the generated aliases skip it too.
+      "@deepseek-ai/dsh-context-ledger-bundle": ["./packages/bundle/context-ledger/src"],
       "@deepseek-ai/dsh-client-*/client": ["./packages/client/*/src/client"],
       // One wildcard maps every @deepseek-ai/dsh-<name> to its source. Package
       // dir names are unique across groups, so first-on-disk-wins resolution is
@@ -381,6 +384,7 @@
       "@deepseek-ai/dsh-compaction-image-offload": ["./packages/compaction/compaction-image-offload/src"],
       "@deepseek-ai/dsh-compaction-tool-result-pruner": ["./packages/compaction/compaction-tool-result-pruner/src"],
       "@deepseek-ai/dsh-config-editor": ["./packages/boot/config-editor/src"],
+      "@deepseek-ai/dsh-context-ledger": ["./packages/context/context-ledger/src"],
       "@deepseek-ai/dsh-credentials": ["./packages/credentials/credentials/src"],
       "@deepseek-ai/dsh-credentials-local": ["./packages/credentials/credentials-local/src"],
       "@deepseek-ai/dsh-deepseek-llm-api-extensions": ["./packages/llm/deepseek-llm-api-extensions/src"],
@@ -433,6 +437,7 @@
       "@deepseek-ai/dsh-pwsh-sandbox": ["./packages/shell/pwsh-sandbox/src"],
       "@deepseek-ai/dsh-remote-mock": ["./packages/test-support/remote-mock/src"],
       "@deepseek-ai/dsh-repeat-tool-reminder": ["./packages/guard/repeat-tool-reminder/src"],
+      "@deepseek-ai/dsh-orchestration-sentinel": ["./packages/guard/orchestration-sentinel/src"],
       "@deepseek-ai/dsh-sandbox": ["./packages/sandbox/sandbox/src"],
       "@deepseek-ai/dsh-sandbox-local": ["./packages/sandbox/sandbox-local/src"],
       "@deepseek-ai/dsh-sandbox-policy": ["./packages/sandbox/sandbox-policy/src"],

@@ -1,0 +1,10 @@
+# Test-only composition for the orchestration sentinel: the real session,
+# prompt, tools and projection services plus the plugin under test. The spec
+# substitutes the plugin's own `config` row into the marked slot below, so one
+# fixture covers the contributing and the observe-only configurations.
+- name: '@deepseek-ai/dsh-session'
+- name: '@deepseek-ai/dsh-system-prompt'
+- name: '@deepseek-ai/dsh-tools'
+- name: '@deepseek-ai/dsh-session-projection'
+- name: '@deepseek-ai/dsh-orchestration-sentinel'
+  config: {{SENTINEL_CONFIG}}

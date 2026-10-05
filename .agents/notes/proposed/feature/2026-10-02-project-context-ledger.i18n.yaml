@@ -1,0 +1,79 @@
+# Bilingual-pair consistency record for 2026-10-02-project-context-ledger.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/proposed/feature/2026-10-02-project-context-ledger.md
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin:
+  en: f6db96a8a858c86c
+  zh: 3b3acdf439177c07
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/problem:
+  en: 5db07e64c9b984ed
+  zh: 6f1a5b3459e28d63
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal:
+  en: 59c9af6aa70e090c
+  zh: e10ee2500a95fc2c
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/layer-map:
+  en: 21bf56096b448e2c
+  zh: f81f75a6f3849250
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/context-scopes-and-lifetime:
+  en: 3b5d869279e1c135
+  zh: 89ca583e082183a0
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/layer-1-project-identity:
+  en: d0bacc5b8d81f4c4
+  zh: 78310edf7b6e855c
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/layer-2-conventions:
+  en: 32fd5acbe2c32b43
+  zh: d5acecb1fcd97d55
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/layer-3-memory:
+  en: a879a1a4f3483d00
+  zh: 5f3830765b8b5385
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/layer-4-continuity:
+  en: 378dcca0a492b561
+  zh: 9584a9392ffba99b
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/layer-5-model-visible-surface:
+  en: 30201400e8530439
+  zh: df479e082e52179a
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/layer-6-budget-and-introspection:
+  en: d9babe3facfeaeb9
+  zh: 8cadf4f474de4559
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/budget-profiles:
+  en: 08d8ee00a0223b39
+  zh: d83b3983b9129a5f
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/budget-profiles/adaptive:
+  en: 1a6432cbe99b8d27
+  zh: aa6549e5e987a3c0
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/budget-profiles/discovery-instead-of-eviction:
+  en: ffc899a32882b1c4
+  zh: 8680b207f20c8f61
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/constraint-placement:
+  en: cfa5145876a67571
+  zh: c05e667c168bf9d6
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/no-plugin-owned-session-events:
+  en: 8a3be1f0eeb02be1
+  zh: 14ea9b815e59ae45
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/storage-layout:
+  en: 175b2170e2eebcae
+  zh: bef7efddbd81bb7d
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/configuration:
+  en: 11c20f066bd4d997
+  zh: 342ec775b8445202
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/trust-gradient:
+  en: 629bed433bec7dff
+  zh: 22a2f98d733db84f
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/packaging-and-loading:
+  en: a596edc4d4b0a0f8
+  zh: 05e288f5f45e3398
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/implementation-status:
+  en: 47c475b6c396717d
+  zh: b261f0214c422eb3
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/proposal/delivery-phases:
+  en: ed538cdf5a0b3e65
+  zh: 19ea735af42781d7
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/alternatives-considered:
+  en: fca25fb46be3951f
+  zh: 0cb3fde2b765c273
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/acceptance-criteria:
+  en: e94c6202a592b1c2
+  zh: 704644cd35ff2f41
+/agent-note-project-context-ledger-durable-project-context-as-a-standalone-dsh-plugin/risks:
+  en: e68f16582c55af37
+  zh: 9bb6959db8328505

@@ -751,6 +751,49 @@ export interface ToolResultPruneConfig {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-compaction-tool-result-pruner -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-context-ledger -->
+<a id="deepseek-aidsh-context-ledger"></a>
+
+## `@deepseek-ai/dsh-context-ledger`
+
+- `inject`: `systemPrompt` · `tools`
+- `source`: [`packages/context/context-ledger/src/config.ts:49`](../packages/context/context-ledger/src/config.ts)
+
+```ts config-catalog
+/** User-facing configuration for the project context ledger. */
+export interface Config {
+  /** Whether the plugin contributes anything at all; `false` disables every layer. */
+  enabled?: boolean
+  /** Whether a session is archived to this project's ledger when it ends. */
+  archiveEnabled?: boolean
+  /** Ascending placement among runtime contexts; 100 sits ahead of `SANDBOX_POLICY`. */
+  contextOrder?: number
+  /** Directory entries that identify a project root while walking upward from the session cwd. */
+  projectRootMarkers?: string[]
+  /** Manifest names probed at the project root and reported on the `Stack` line. */
+  stackManifestNames?: string[]
+  /** File names read as directory-scoped conventions when their directory is touched. */
+  conventionFileNames?: string[]
+  /** Whether the project directory name is rendered as the `Project` line. */
+  includeProjectName?: boolean
+  /** The ceiling profile to enforce, or the adaptive mode that picks a rung per session. */
+  budgetProfile?: BudgetProfileName | null
+  /** Per-ceiling overrides applied over whichever profile is in force. */
+  budgetOverrides?: Record<string, number>
+  /** Fraction of the free window the adaptive mode may spend on the injected block. */
+  adaptiveUtilizationRatio?: number
+  /** Harness home holding the ledger; defaults to `$DSH_HOME`. */
+  ledgerHome?: string
+}
+
+/** Every selectable profile name, including the adaptive mode. */
+export type BudgetProfileName = BudgetRungName | 'adaptive'
+
+/** A ceiling profile name — one rung of the adaptive ladder. */
+export type BudgetRungName = 'frugal' | 'balanced' | 'full'
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-context-ledger -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-cordis-host-runner -->
 <a id="deepseek-aidsh-cordis-host-runner"></a>
 
@@ -2380,6 +2423,47 @@ export interface Config {
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-office-to-pdf -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-orchestration-sentinel -->
+<a id="deepseek-aidsh-orchestration-sentinel"></a>
+
+## `@deepseek-ai/dsh-orchestration-sentinel`
+
+- `inject`: `tools` · `systemPrompt` · `sessionProjections`
+- `source`: [`packages/guard/orchestration-sentinel/src/config.ts:43`](../packages/guard/orchestration-sentinel/src/config.ts)
+
+```ts config-catalog
+/**
+ * Plugin configuration, validated by the same-named schemastery schema. Every
+ * field is checked when the plugin activates; an out-of-range or wrongly typed
+ * value fails activation instead of being silently clamped.
+ */
+export interface Config {
+  /** Whether the sentinel runs at all. */
+  enabled?: boolean
+  /**
+   * Compute the decision but contribute no context text: the observation mode
+   * that measures how often an intervention window appears before any guidance
+   * is injected.
+   */
+  observeOnly?: boolean
+  /** Trailing steps the repeated-tool (PTC) window inspects. */
+  windowSteps?: number
+  /** Consecutive single-call steps that trigger the batching reminder. */
+  singleCallStreak?: number
+  /** Occurrences of one tool inside the window that trigger the PTC suggestion. */
+  repeatedToolCalls?: number
+  /** Minimum steps between two emissions inside the same turn. */
+  cooldownSteps?: number
+  /** Emissions allowed per session; `0` suppresses every emission and every observation record. */
+  maxEmissions?: number
+  /** Whether the batching mechanism is eligible. */
+  enableSplit?: boolean
+  /** Whether the PTC mechanism is eligible; `run_code` visibility still gates it. */
+  enablePtcSuggestion?: boolean
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-orchestration-sentinel -->
 
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-permission-presets -->
 <a id="deepseek-aidsh-permission-presets"></a>
@@ -4732,6 +4816,7 @@ export interface Config {
 | `@deepseek-ai/dsh-client-ui-slots` | — | [`packages/client/ui-slots/src/index.ts`](../packages/client/ui-slots/src/index.ts) |
 | `@deepseek-ai/dsh-client-web` | — | [`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts) |
 | `@deepseek-ai/dsh-cmdline` | — | [`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts) |
+| `@deepseek-ai/dsh-context-ledger-bundle` | — | [`packages/bundle/context-ledger/src/index.ts`](../packages/bundle/context-ledger/src/index.ts) |
 | `@deepseek-ai/dsh-deque` | — | [`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-agent-team-profile` | — | [`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-badge-skill-bundle` | — | [`packages/experimental/badge-skill-bundle/src/index.ts`](../packages/experimental/badge-skill-bundle/src/index.ts) |

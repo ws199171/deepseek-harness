@@ -26,6 +26,7 @@ This group maps the installable patch layers used by `dsh --profile`. Each packa
 | [`acp-app`](acp-app/README.md) | Automation-only ACP stdio application over base | mounts the ACP bridge |
 | [`web-app`](web-app/README.md) | Browser application layer over base | mounts Web rows |
 | [`headless`](headless/README.md) | One-shot command-line task application over base | `headless-runner` |
+| [`context-ledger`](context-ledger/README.md) | Project identity, durable project memory, a mechanical session archive, directory conventions, and an adaptive injection budget over base | mounts the ledger row |
 | [`sdk-app`](sdk-app/README.md) | SDK JSON-RPC stdio application over base | mounts the SDK server |
 | [`sdk-minimal`](sdk-minimal/README.md) | Standalone minimal SDK application without base or Web | — (complete patch tree) |
 

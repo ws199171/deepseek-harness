@@ -1,0 +1,85 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/guard/orchestration-sentinel/README.md
+/:
+  en: 08e7b9b972587a59
+  zh: fb769c4a9c3f239f
+/deepseek-ai-dsh-orchestration-sentinel:
+  en: 8caa60c5df6cc8ea
+  zh: 0a61c2533dc46bac
+/deepseek-ai-dsh-orchestration-sentinel/summary:
+  en: bc99c37ee15857ac
+  zh: ad5a49b0993def90
+/deepseek-ai-dsh-orchestration-sentinel/table-of-contents:
+  en: 1caee0e692edfca5
+  zh: 57416e0e4adf3079
+/deepseek-ai-dsh-orchestration-sentinel/use-this-package:
+  en: 1fbc7d4b434f425b
+  zh: d50a37c907b4a033
+/deepseek-ai-dsh-orchestration-sentinel/use-this-package/when-to-choose-it:
+  en: 193c9fae6bdd9932
+  zh: 8e01252c2e23e4c8
+/deepseek-ai-dsh-orchestration-sentinel/use-this-package/what-you-get:
+  en: 998d1b23edb166b2
+  zh: 96e30ee9e9b540a7
+/deepseek-ai-dsh-orchestration-sentinel/use-this-package/running-it-tuning-it-turning-it-off:
+  en: a71baf6cd49df753
+  zh: 52f4d8ad55887ed2
+/deepseek-ai-dsh-orchestration-sentinel/understand-the-implementation:
+  en: ee4615a04fa6503d
+  zh: 5cd6a9ceee4fa243
+/deepseek-ai-dsh-orchestration-sentinel/understand-the-implementation/design-philosophy:
+  en: afb3b63e7dd73c56
+  zh: 7fb12ad6234b5e02
+/deepseek-ai-dsh-orchestration-sentinel/understand-the-implementation/the-two-mechanisms:
+  en: a9ab51cbccecbd36
+  zh: 6c3e8d927ae8a3ca
+/deepseek-ai-dsh-orchestration-sentinel/understand-the-implementation/where-the-decision-is-made:
+  en: 4890cf39c0d4cac5
+  zh: 719fffd097604c77
+/deepseek-ai-dsh-orchestration-sentinel/understand-the-implementation/why-the-log-alone-accounts-for-every-emission:
+  en: edb1d872edd21823
+  zh: 45ac32bff7e8225f
+/deepseek-ai-dsh-orchestration-sentinel/further-exploration:
+  en: 31e97e44b960ee7e
+  zh: c5df36faf3febcc6
+/deepseek-ai-dsh-orchestration-sentinel/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/batching-reminder:
+  en: 1dbfa646d7781fb6
+  zh: 7fd39bda609e3c5a
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/batching-reminder/what-the-model-sees:
+  en: 512227854cde6239
+  zh: bb85baabb559b5dd
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/batching-reminder/what-the-model-sees/batching-reminder-text:
+  en: cb17b7c2c6753177
+  zh: 1b7c23685ee21174
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/batching-reminder/token-effect:
+  en: 9087b22814628bc9
+  zh: 065f23fae3e6959b
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/batching-reminder/kv-cache-effect:
+  en: c5e6d259383ab092
+  zh: f5d983d776375d67
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/run-code-suggestion:
+  en: d5e5d1cc0896c1df
+  zh: 9d0850622f47fe66
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/run-code-suggestion/what-the-model-sees:
+  en: a37910a62fdcf9b2
+  zh: 6846db177dfebcf3
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/run-code-suggestion/what-the-model-sees/run-code-suggestion-text:
+  en: 00e6e5496f8cc731
+  zh: 8d7162fb8fe199b0
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/run-code-suggestion/token-effect:
+  en: b782bcdf5d5f001d
+  zh: 0f22643117158217
+/deepseek-ai-dsh-orchestration-sentinel/model-experience/run-code-suggestion/kv-cache-effect:
+  en: 4625ec6ad901a324
+  zh: d1ea953839e53282
+/deepseek-ai-dsh-orchestration-sentinel/known-limitations-and-deferred-work:
+  en: 4712575734b90172
+  zh: 5e7df2f5f70e089c
+/deepseek-ai-dsh-orchestration-sentinel/known-limitations-and-deferred-work/dev-note:
+  en: 92106dd092f9094d
+  zh: a3b2b8a6889e4fa6

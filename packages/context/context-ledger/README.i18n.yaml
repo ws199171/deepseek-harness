@@ -1,0 +1,79 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/context/context-ledger/README.md
+/description-the-project-context-ledger-project-identity-durable-project-memory-with-a-trust-gradient-a-mechanical-session-archive-directory-conventions-delivered-on-touch-and-an-adaptive-injection-budget-kind-package-reference:
+  en: 80346bcfa85e3312
+  zh: 62e0b31b97564250
+/deepseek-ai-dsh-context-ledger:
+  en: 80f96fe4a462d01e
+  zh: 27f0a0b28b0fd641
+/deepseek-ai-dsh-context-ledger/summary:
+  en: 9d647763ab3be3a2
+  zh: 71e288228df696c5
+/deepseek-ai-dsh-context-ledger/table-of-contents:
+  en: bf61eaaf3b311d79
+  zh: 22ce51f6a649c9ba
+/deepseek-ai-dsh-context-ledger/use-this-package:
+  en: 669ff86e58f88ccb
+  zh: f24e8305cc583798
+/deepseek-ai-dsh-context-ledger/understand-the-implementation:
+  en: 91fbf2a927ff5457
+  zh: 89b6f7c92c9d8c11
+/deepseek-ai-dsh-context-ledger/further-exploration:
+  en: 669847866cc95b6b
+  zh: cba80a5b914e0922
+/deepseek-ai-dsh-context-ledger/dev-note:
+  en: 35119bee25a05377
+  zh: 5792a27aeaa0111c
+/deepseek-ai-dsh-context-ledger/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-context-ledger/model-experience/the-project-context-block:
+  en: 9156ced4f3039cb3
+  zh: 6335ef9045f27c61
+/deepseek-ai-dsh-context-ledger/model-experience/the-project-context-block/what-the-model-sees:
+  en: 54098299d0366859
+  zh: 264eb5c2d12c958e
+/deepseek-ai-dsh-context-ledger/model-experience/the-project-context-block/what-the-model-sees/project-context-template:
+  en: 078129c3e5ac37c3
+  zh: f43cab0bd019a1eb
+/deepseek-ai-dsh-context-ledger/model-experience/the-project-context-block/token-effect:
+  en: 5cced44ff17c9bf1
+  zh: fde49d91b6e806c1
+/deepseek-ai-dsh-context-ledger/model-experience/the-project-context-block/kv-cache-effect:
+  en: 1968b1b292b81a9a
+  zh: d600f2a59136dbb1
+/deepseek-ai-dsh-context-ledger/model-experience/directory-conventions:
+  en: 397c3f17fd5c5703
+  zh: 840b75c1dc3e54ce
+/deepseek-ai-dsh-context-ledger/model-experience/directory-conventions/what-the-model-sees:
+  en: edf10870b1add01f
+  zh: 73071cd08ef8e554
+/deepseek-ai-dsh-context-ledger/model-experience/directory-conventions/what-the-model-sees/convention-message-template:
+  en: 21ac626f596f6123
+  zh: 10d4c9eb874d65f9
+/deepseek-ai-dsh-context-ledger/model-experience/directory-conventions/token-effect:
+  en: da598af7e2a2ee2d
+  zh: e80fbb3e8bf00872
+/deepseek-ai-dsh-context-ledger/model-experience/directory-conventions/kv-cache-effect:
+  en: 89c5e4eabfb869ec
+  zh: 9e8d9e7fa4b6afc9
+/deepseek-ai-dsh-context-ledger/model-experience/ledger-tool-results:
+  en: 912df3135950c88b
+  zh: 58bc111c94caaf33
+/deepseek-ai-dsh-context-ledger/model-experience/ledger-tool-results/what-the-model-sees:
+  en: d595b4ff96c3b97c
+  zh: 0424b6118225b763
+/deepseek-ai-dsh-context-ledger/model-experience/ledger-tool-results/what-the-model-sees/ledger-status-rendering:
+  en: 2088a0be02e328ec
+  zh: 5c39413bdf07f588
+/deepseek-ai-dsh-context-ledger/model-experience/ledger-tool-results/token-effect:
+  en: 379b8eac26279837
+  zh: 2649685df6d39395
+/deepseek-ai-dsh-context-ledger/model-experience/ledger-tool-results/kv-cache-effect:
+  en: 4a62e051f0abc545
+  zh: da8d974da81f4a6f
+/deepseek-ai-dsh-context-ledger/known-limitations-and-deferred-work:
+  en: 0fc34e5d659d5531
+  zh: 4d076965e3a70c91

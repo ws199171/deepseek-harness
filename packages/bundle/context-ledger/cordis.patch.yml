@@ -1,0 +1,20 @@
+# The dsh-context-ledger-bundle patch: the project context ledger over dsh-base.
+#
+# It mounts one plugin and changes nothing else, so a deployment selects this
+# bundle to add the ledger and deselects it to remove it completely — no other
+# row is touched, and no capability the ledger reads is required to exist:
+# the filesystem provider, session store, session query, token meter, model
+# router, and approval surface are all resolved through `ctx.get`, and a profile
+# missing one loses only that capability.
+
+- insert:
+    # Identity plus an adaptive memory index, injected as one runtime-context
+    # snapshot; durable project memory, a mechanical session archive, and
+    # directory conventions behind seven `ledger_*` tools.
+    #
+    # The row carries no `config`, so the plugin's own defaults apply. A
+    # deployment tunes it through an override on this id in its own patch layer:
+    # `budgetProfile` selects a ceiling profile or the adaptive mode, and
+    # `budgetOverrides` adjusts individual ceilings without changing profile.
+    - id: dsh-context-ledger
+      name: '@deepseek-ai/dsh-context-ledger'

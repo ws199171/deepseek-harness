@@ -446,6 +446,17 @@
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
+    # Conditional orchestration guidance on the tool chain: a batching reminder
+    # after a run of single concurrency-safe steps, and a `run_code` suggestion
+    # when one tool repeats and the PTC transport is visible. Both are bounded by
+    # a per-session emission budget and a per-turn cooldown, and both fall silent
+    # on their own once the model complies, so an already-batching session pays
+    # nothing. The row carries no `config`: enabled with guidance on is the
+    # delivering configuration, and a deployment that wants the folding without
+    # model-visible guidance overrides this id with `observeOnly: true`.
+    - id: orchestration-sentinel
+      name: '@deepseek-ai/dsh-orchestration-sentinel'
+
     # The shared base enables the stable model-facing web_search and web_fetch
     # tools. The Web app disables this host row and composes both tools per agent
     # preset; products with a stricter network policy override tool-web. DeepSeek
