@@ -49,3 +49,8 @@ worktrees/
 .agents/worktrees/
 .typert-*/
 native/system/test/bin/
+# >>> Comet managed project state >>>
+!/.comet/
+/.comet/*
+!/.comet/config.yaml
+# <<< Comet managed project state <<<
