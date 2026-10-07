@@ -1,0 +1,139 @@
+schema: comet.native.v4
+name: execution-viewer-plan
+language: zh-CN
+phase: build
+status: active
+state_version: 3
+brief: brief.md
+document_constraints_version: 2
+shape_confirmation_hash: f7458b6de9291b25e7f9238184593903b6a4c1781b60930a53a26d35872a9b66
+spec_changes:
+  - capability: execution-viewer
+    operation: create
+    source: specs/execution-viewer/spec.md
+workspace:
+  isolation: worktree
+  change_branch: comet/execution-viewer-plan
+  target_branch: codebudy_cli
+  finish: null
+loop:
+  stage: building
+  goal_cycle: 1
+  iteration: 1
+  attempt: 0
+  retry_epoch: 0
+  failed_iteration_count: 0
+  no_progress_count: 0
+  execution_failure_count: 0
+  previous_unresolved_ids: []
+  next_action: submit-builder-candidate
+acceptance:
+  - id: A1
+    source: brief.md
+    text: "A1：新包 `packages/client/ui-execution-viewer/` 存在，`package.json` 含
+      `dsh.client`（`platform: 'web'`）与 `./client` 导出；四处接入面（`tsconfig.base.json`
+      手写裸别名、`tsconfig.client.json`
+      references、`packages/bundle/web-app/cordis.patch.yml`
+      行、`packages/bundle/web-app/package.json`
+      依赖）全部就位；`verify-tsconfig-paths`、`verify-cordis-config`、`verify-client-pac\
+      kages`、`verify-package-dependencies` 通过。"
+    result: pending
+    reason: null
+  - id: A2
+    source: brief.md
+    text: A2：默认部署打开会话时，会话头部出现新增视图页签且文案来自本包 locale 字典；`conversation.view`
+      注册成功且卸载后可回收；`useExecution` 由 `uiSession.provide` 提供并可读到本视图快照。
+    result: pending
+    reason: null
+  - id: A3
+    source: brief.md
+    text: A3：仅凭持久事件（`tool/call` 与 `tool/result`）即可重建每一步的类型、标题、状态与耗时，且工具步骤耗时等于两侧信封
+      `time` 之差。
+    result: pending
+    reason: null
+  - id: A4
+    source: brief.md
+    text: A4：工具名到步骤类型的映射与规格表逐条一致；未知或动态工具名回落为 `tool` 并原样显示工具名，不做改写。
+    result: pending
+    reason: null
+  - id: A5
+    source: brief.md
+    text: A5：终态判定符合规格——`message.isError === true` 或 `error` 存在即为失败并显示
+      `error.code`；`turn/end` 之后仍无 `tool/result` 的调用显示为未完成；界面不显示退出码。
+    result: pending
+    reason: null
+  - id: A6
+    source: brief.md
+    text: "A6：推理步骤文本由 `assistant/message` 的 `reasoning-chunks` 还原为权威文本，时序由记录还原；结算带
+      `interrupted: true` 时显示为 interrupted 而不是运行中。"
+    result: pending
+    reason: null
+  - id: A7
+    source: brief.md
+    text: A7：实时阶段按 `animation-frame`
+      发布——推理增量与工具参数增量实时可见，未结束步骤显示走秒；所有走秒在终态或卸载后停止，且不写入任何快照或日志。
+    result: pending
+    reason: null
+  - id: A8
+    source: brief.md
+    text: A8：把全部瞬态 `assistant/live-chunk` 证据移除后（模拟重连与向上翻页），快照与节点仍可由持久事件重建为等价结果。
+    result: pending
+    reason: null
+  - id: A9
+    source: brief.md
+    text: A9：完整 `replace`、update-only 尾巴补 start、初始历史加实时追加三条路径产出相同的最终 State 与节点载荷。
+    result: pending
+    reason: null
+  - id: A10
+    source: brief.md
+    text: A10：View Builder 按 `anchorSeq` 排序、按 turn 分组、正确统计步骤数与运行中计数，`isActive`
+      在无步骤时为假；未打开视图的会话不产生折叠工作。
+    result: pending
+    reason: null
+  - id: A11
+    source: brief.md
+    text: A11：视图每行一步并展示类型图标、结构化标题、状态与耗时；点击行展开详情面板，显示完整命令、完整参数、完整结果、错误与推理文本。
+    result: pending
+    reason: null
+  - id: A12
+    source: brief.md
+    text: A12：客户端源码不含字面产品文案，全部经 locale 字典并通过
+      `verify-client-ui-i18n`；工具名、路径、命令、查询、URL 与错误码原样显示，不被翻译或改写。
+    result: pending
+    reason: null
+  - id: A13
+    source: brief.md
+    text: A13：`pnpm run test:coverage` 对本包 `src/**` 逐文件 100%；规格列出的 gate 全部通过；`pnpm
+      run typecheck` 的 host 与 client 两面通过。
+    result: pending
+    reason: null
+  - id: A14
+    source: brief.md
+    text: A14：`DSH_SNAPSHOT=replay pnpm run test:web` 通过，并存在至少一个 Web
+      场景断言执行过程视图的步骤行渲染；相关期望输出的差异经逐条审查后才 refresh。
+    result: pending
+    reason: null
+  - id: A15
+    source: brief.md
+    text: A15：实现不修改任何既有包的行为，不新增 Host 服务或 typert 与 Remote 面，不新增会话事件类型，不声明 Cordis
+      Config；变更范围仅限新包与四处接入面。
+    result: pending
+    reason: null
+builder_handoff: null
+blockers: []
+verification: null
+history: []
+history_overflow:
+  dropped_entries: 0
+  first_dropped_at: null
+  last_dropped_at: null
+  outcome_counts:
+    pass: 0
+    fail: 0
+    blocked: 0
+    execution-error: 0
+    recovery: 0
+verification_result: pending
+verification_report: null
+archived: false
+created_at: 2026-10-05T14:24:01.154Z
