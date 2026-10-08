@@ -9,9 +9,9 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The Execution view shows one Session's work as a flat, auditable ledger. Each row is one host item — a reasoning run or one tool call — with its category, recorded title, lifecycle state, and duration. Selecting a row expands the complete recorded command, arguments, result, failure code, or reasoning text. A running step walks its own clock until it settles, and reasoning streams while the attempt is open.
+The Execution view shows one Session's work as a flat ledger: one row per reasoning run or tool call, with its category, recorded title, lifecycle state, and duration. Selecting a row expands the recorded command, arguments, result, failure code, or reasoning text. A running step walks its own clock until it settles.
 
-The view is a Conversation target of its own, beside Chat and Trajectory, so it never competes with Chat's process grouping for the same rows. Its ledger is folded in the browser from the Session window the Client already holds: the plugin adds no Host service, no Remote face, no Session event type, and no configuration.
+The view is a Conversation target beside Chat and Trajectory, so it never competes with Chat's process grouping for the same rows. The browser folds its ledger from the Session window the Client already holds: no Host service, Remote face, Session event type, or configuration.
 
 ## Use this package
 
