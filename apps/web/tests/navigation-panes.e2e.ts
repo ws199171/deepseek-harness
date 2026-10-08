@@ -28,6 +28,8 @@ const TRAJECTORY_EXPECTED = join(SNAPSHOT_DIR, 'trajectory.expected.md')
 const TIMING_EXPECTED = join(SNAPSHOT_DIR, 'timing.expected.md')
 const SEARCH_EXPECTED = join(SNAPSHOT_DIR, 'search-results.expected.md')
 const TERMINAL_EXPECTED = join(SNAPSHOT_DIR, 'terminal-card.expected.md')
+const EXECUTION_EXPECTED = join(SNAPSHOT_DIR, 'execution.expected.md')
+const EXECUTION_DETAIL_EXPECTED = join(SNAPSHOT_DIR, 'execution-detail.expected.md')
 const CODE_CARD_DIR = fileURLToPath(new URL('./expected/navigation-panes', import.meta.url))
 const CODE_CARD_EXPECTED = join(CODE_CARD_DIR, 'code-card.expected.md')
 const MODE = webSnapshotMode()
@@ -298,6 +300,65 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     await details.getByRole('button', { name: 'Close details' }).click()
   }, 60_000)
 
+  it.skipIf(MODE === 'record')('renders the Execution ledger over the same two seeded turns', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-navigation-execution'))
+    await ensureSeedOpen(page)
+    await page.getByRole('tab', { name: 'Execution', exact: true }).click()
+    const ledger = page.getByRole('list', { name: 'Execution step list' })
+    await ledger.waitFor({ timeout: 15_000 })
+    // The fold reads the same recorded log the Trajectory ledger does, so the
+    // ledger is the seeded steps themselves: turn 1 is one reasoning run, the
+    // bash call, two parallel reads, then its second step's reasoning run;
+    // turn 2 is one more reasoning run. Six rows over two Turn sections.
+    const sections = ledger.locator(':scope > section')
+    const rows = ledger.getByRole('listitem')
+    await expect.poll(() => rows.count(), { timeout: 15_000 }).toBe(6)
+    expect(await sections.count()).toBe(2)
+    expect(await sections.nth(0).locator('[class*="turnHeader"]').textContent()).toContain('Turn 1')
+    expect(await sections.nth(1).locator('[class*="turnHeader"]').textContent()).toContain('Turn 2')
+    // One row per recorded step, in anchor order, each with its category, its
+    // recorded title, and its settled lifecycle.
+    const [thinking, run, readA, readB, thinkingSecond, thinkingTurnTwo] = await rows.allTextContents()
+    expect(thinking).toContain('Thinking')
+    expect(run).toContain('Run')
+    expect(run).toContain('echo NAVIGATION_OK')
+    expect(readA).toContain('Read')
+    expect(readA).toContain('nav-a.md')
+    expect(readB).toContain('Read')
+    expect(readB).toContain('nav-b.md')
+    expect(thinkingSecond).toContain('Thinking')
+    expect(thinkingTurnTwo).toContain('Thinking')
+    for (const row of [thinking, run, readA, readB, thinkingSecond, thinkingTurnTwo]) {
+      expect(row).toContain('Done')
+    }
+    expect(await rows.nth(1).getAttribute('data-status')).toBe('succeeded')
+    const collapsed = (await captureStableAria(page, '[class*="viewArea"]', scaffold.workspaceCwd))
+      .split(SEED_ID).join('{{seededId}}')
+    await compareOrRefreshGolden(EXECUTION_EXPECTED, collapsed, MODE)
+
+    // The reasoning row's detail is the recorded text verbatim; the tool row's
+    // is the recorded command, arguments, and result.
+    const reasoningButton = rows.nth(0).getByRole('button')
+    await reasoningButton.click()
+    await expect.poll(() => rows.nth(0).textContent()).toContain('follow a specific navigation scenario')
+    await reasoningButton.click()
+    await expect.poll(() => reasoningButton.getAttribute('aria-expanded')).toBe('false')
+
+    const runButton = rows.nth(1).getByRole('button')
+    await runButton.click()
+    await expect.poll(() => runButton.getAttribute('aria-expanded')).toBe('true')
+    const detail = await rows.nth(1).textContent()
+    expect(detail).toContain('Command')
+    expect(detail).toContain('echo NAVIGATION_OK')
+    expect(detail).toContain('Arguments')
+    expect(detail).toContain('"command": "echo NAVIGATION_OK"')
+    expect(detail).toContain('Result')
+    expect(detail).toContain('NAVIGATION_OK')
+    const expanded = (await captureStableAria(page, '[class*="viewArea"]', scaffold.workspaceCwd))
+      .split(SEED_ID).join('{{seededId}}')
+    await compareOrRefreshGolden(EXECUTION_DETAIL_EXPECTED, expanded, MODE)
+  }, 60_000)
+
   it.skipIf(MODE === 'record')('restores Assistant timing from recorded history', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-navigation-timing'))
     await ensureSeedOpen(page)
@@ -549,6 +610,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
   it.skipIf(MODE === 'record')('keeps the recorded fixture inventory exact', async () => {
     await assertFixtureInventory(CODE_CARD_DIR, ['code-card.expected.md'])
     await assertFixtureInventory(SNAPSHOT_DIR, [
+      'execution-detail.expected.md', 'execution.expected.md',
       'session.v3.jsonl', 'search-results.expected.md', 'trajectory.expected.md',
       'terminal-card.expected.md', 'timing.expected.md',
     ])

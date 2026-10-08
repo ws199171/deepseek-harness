@@ -104,6 +104,7 @@ export const executionThinkingDefinition: ConversationNodeDefinition<ThinkingSta
         : null
     }
     if (reasoningRecord(event) === undefined) return null
+    /* v8 ignore next -- reasoningRecord() already rejected every other event type, so this narrows for the checker. */
     if (event.type !== 'assistant/message' && event.type !== 'assistant/attempt') return null
     return { id: runId(event.data.turn, event.data.step), role: 'start' }
   },

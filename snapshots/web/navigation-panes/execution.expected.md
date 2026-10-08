@@ -1,0 +1,15 @@
+- list "Execution step list":
+  - text: Turn 1 Finished
+  - listitem:
+    - button "Expand details for step 1": Thinking Thinking Done {{duration}}
+  - listitem:
+    - button "Expand details for step 2": Run echo NAVIGATION_OK Done {{duration}}
+  - listitem:
+    - button "Expand details for step 3": Read nav-a.md Done {{duration}}
+  - listitem:
+    - button "Expand details for step 4": Read nav-b.md Done {{duration}}
+  - listitem:
+    - button "Expand details for step 5": Thinking Thinking Done {{duration}}
+  - text: Turn 2 Finished
+  - listitem:
+    - button "Expand details for step 1": Thinking Thinking Done {{duration}}

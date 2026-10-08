@@ -5,6 +5,7 @@
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
+    - tab "Execution"
 - text: Show the Markdown image policy. {{clock}}
 - button "Copy"
 - status: Completed

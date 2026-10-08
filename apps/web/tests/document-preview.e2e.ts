@@ -621,7 +621,9 @@ else process.exit(1);
     await input.press('Enter')
     const sessionId = await settled
     await page.getByText('LIGHTHOUSE', { exact: true }).waitFor({ timeout: 15_000 })
-    expect(await page.getByRole('tablist').count()).toBe(0)
+    // The shipped composition always offers Chat plus the Execution ledger; the
+    // opt-in code-work view is the one this Standard-mode Session leaves off.
+    expect(await page.locator('[data-conversation-tabs] [role="tab"]').count()).toBe(2)
     const cwd = scaffold.ctx.agents.get(sessionId)?.session.header.cwd
     if (cwd === undefined) throw new Error('settled Session has no workspace cwd')
     if (outsideRoot === undefined) throw new Error('outside fixture directory is unavailable')

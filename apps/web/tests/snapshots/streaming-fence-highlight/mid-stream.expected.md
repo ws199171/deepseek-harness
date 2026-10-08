@@ -6,6 +6,7 @@
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
+    - tab "Execution"
 - text: Stream one TypeScript fence for the highlighting snapshot. {{clock}}
 - button "Copy"
 - text: ts

@@ -16,6 +16,7 @@
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
+    - tab "Execution"
 - button "GitHub event received {{clock}}":
   - text: GitHub event received
   - time: {{clock}}

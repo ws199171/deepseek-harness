@@ -6,6 +6,7 @@
   - tablist:
     - tab "Chat" [selected]
     - tab "Trajectory"
+    - tab "Execution"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"

@@ -202,16 +202,18 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     const card = page.locator('[data-changed-files]')
     expect(await card.count()).toBe(0)
     const header = page.locator('header').filter({ has: page.locator('[data-conversation-header-leading]') })
-    expect(await header.getByRole('tablist').count()).toBe(0)
-    const compactHeight = await header.evaluate(element => element.getBoundingClientRect().height)
-    expect(compactHeight).toBeLessThan(60)
+    // The shipped composition always offers Chat plus the Execution ledger, so
+    // the view tab strip exists before the opt-in code-work view is switched on.
+    const viewTabs = header.locator('[data-conversation-tabs] [role="tab"]')
+    await expect.poll(() => viewTabs.count()).toBe(2)
     await openSettings(page, 'zh')
     const settings = page.getByRole('dialog', { name: '设置' })
     await settings.getByRole('switch', { name: '显示代码工作视图' }).click()
     await expect.poll(() => settings.getByRole('switch', { name: '显示代码工作视图' }).getAttribute('aria-checked')).toBe('true')
     await settings.getByRole('button', { name: '关闭', exact: true }).click()
-    await header.getByRole('tablist').waitFor({ state: 'visible' })
-    expect(await header.evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThan(compactHeight)
+    // The code-work view is the opt-in third target; it joins the strip without
+    // adding a second row of chrome.
+    await expect.poll(() => viewTabs.count()).toBe(3)
     await card.waitFor({ state: 'visible' })
     expect(await card.getByText('已编辑 4 个文件', { exact: true }).count()).toBe(1)
     expect(await card.getByRole('listitem').count()).toBe(4)

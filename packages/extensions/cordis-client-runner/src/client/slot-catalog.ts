@@ -3738,6 +3738,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'useConversation: UseConversation',
       'useInput: SnapshotSelectorHook<InputState>',
       'inputActions: InputActions',
+      'useExecution: UseExecution',
       'useSession: SessionSnapshotSelector',
       'sessionId: SessionId',
       'useProjection: UseProjection',
