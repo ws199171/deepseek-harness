@@ -60,7 +60,7 @@ export function turnStart(turn: number, at?: number): SessionEventLikeEntry {
 /** One `turn/end` boundary. */
 export function turnEnd(turn: number, at?: number): SessionEventLikeEntry {
   const { seq, time } = stamp(at)
-  return durable({ type: 'turn/end', seq, time, data: { turn } })
+  return durable({ type: 'turn/end', seq, time, data: { turn, reason: { kind: 'completed' } } })
 }
 
 /** One committed `tool/call`. */

@@ -325,6 +325,7 @@ describe('ImageGallery', () => {
       useConversation,
       useChat,
       useTrajectory,
+      useExecution: selector => selector({ turns: [], stepCount: 0, runningCount: 0 }),
       useInput,
       inputActions: {
         captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }),

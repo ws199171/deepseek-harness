@@ -236,6 +236,7 @@ function standaloneProps(
     useSessionRetainInfo: () => undefined,
     useWorkspaces: emptyWorkspaces(),
     useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot(trajectory))),
+    useExecution: selector => selector({ turns: [], stepCount: 0, runningCount: 0 }),
     useInput: bindSnapshotSelector(input),
     inputActions,
     useProjection,
@@ -279,6 +280,7 @@ async function bench(snapshot = historySnapshot(NODES)) {
     chat: createSnapshotStore<ChatSnapshot | undefined>(undefined),
     trajectory: trajectoryStore,
     'tool-todo-history': createSnapshotStore<ConversationViewSnapshotMap['tool-todo-history'] | undefined>(undefined),
+    execution: createSnapshotStore<ConversationViewSnapshotMap['execution'] | undefined>(undefined),
   }
   const binding: ConversationBinding = {
     snapshot: conversationStore,
@@ -358,6 +360,7 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
     sessionId: SID,
     useSession,
     useTrajectory,
+    useExecution: () => { throw new Error('unused') },
     useChat,
     useConversation,
     useConversationViews,

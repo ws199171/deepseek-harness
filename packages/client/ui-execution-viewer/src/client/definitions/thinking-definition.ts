@@ -104,6 +104,7 @@ export const executionThinkingDefinition: ConversationNodeDefinition<ThinkingSta
         : null
     }
     if (reasoningRecord(event) === undefined) return null
+    if (event.type !== 'assistant/message' && event.type !== 'assistant/attempt') return null
     return { id: runId(event.data.turn, event.data.step), role: 'start' }
   },
   start: (_context, match) => {

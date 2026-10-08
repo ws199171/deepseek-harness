@@ -117,7 +117,7 @@ export const executionStepDefinition: ConversationNodeDefinition<StepState> = {
     }
     const chunk = toolCallDelta(event)
     /* v8 ignore next 3 -- match() marks only a tool-call delta or tool/call as a start. */
-    if (chunk === undefined) {
+    if (chunk === undefined || event.type !== 'assistant/live-chunk') {
       throw new Error('execution-step requires a tool-call-delta or tool/call start event')
     }
     return {

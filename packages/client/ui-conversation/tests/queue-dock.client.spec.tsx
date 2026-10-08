@@ -113,6 +113,7 @@ function kitFor(snapshot: SessionSnapshot, injected: Partial<QueueDockInjected> 
     useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot())),
     useChat: (() => { throw new Error('unused') }) as QueueDockProps['useChat'],
     useTrajectory: (() => { throw new Error('unused') }) as QueueDockProps['useTrajectory'],
+    useExecution: (() => { throw new Error('unused') }) as QueueDockProps['useExecution'],
     useInput: (() => { throw new Error('unused') }) as never,
     inputActions: { setDraft: () => {}, submit: () => {} } as never,
     session: snapshot,

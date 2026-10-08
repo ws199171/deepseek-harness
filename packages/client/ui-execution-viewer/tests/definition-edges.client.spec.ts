@@ -23,7 +23,7 @@ import { ExecutionViewBuilder } from '../src/client/view/builder.ts'
 import {
   executionViewDefinition, registerExecutionConversationView,
 } from '../src/client/view/view-definition.ts'
-import { resetLog, liveToolDelta, toolCall, toolResult, turnEnd, turnStart } from './fixtures.ts'
+import { resetLog, liveToolDelta, toolCall, toolResult, turnEnd, turnStart } from './fixtures.client.ts'
 
 const REGISTERED: readonly ConversationNodeDefinition[] = [executionStepDefinition, executionThinkingDefinition]
 

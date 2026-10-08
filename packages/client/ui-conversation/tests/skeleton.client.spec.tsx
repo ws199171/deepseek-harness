@@ -217,6 +217,7 @@ function mount(
           useConversationViews={useConversationViews}
           useChat={useChat}
           useTrajectory={useTrajectory}
+          useExecution={selector => selector({ turns: [], stepCount: 0, runningCount: 0 })}
           useSessions={props.useSessions}
           usePanelInfo={props.usePanelInfo}
           useResource={useResource}
@@ -246,6 +247,7 @@ function mount(
           useInspectCall={selector => selector(undefined)}
           useChat={useChat}
           useTrajectory={useTrajectory}
+          useExecution={selector => selector({ turns: [], stepCount: 0, runningCount: 0 })}
           useSessions={props.useSessions}
           usePanelInfo={props.usePanelInfo}
           useResource={useResource}
@@ -331,6 +333,7 @@ function mount(
       useConversation,
       useChat,
       useTrajectory,
+      useExecution: () => { throw new Error('unused') },
       useSessions: bindSnapshotSelector(sessions),
       usePanelInfo: selector => selector({ activePanelId: null }),
       useResource,

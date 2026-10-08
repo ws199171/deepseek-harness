@@ -126,6 +126,7 @@ const kit: Omit<QuestionComposerProps, 'matched'> = {
   useConversation: selector => selector(conversationState),
   useChat: selector => selector(chatState),
   useTrajectory: selector => selector(trajectoryState),
+  useExecution: selector => selector({ turns: [], stepCount: 0, runningCount: 0 }),
   useProjection: (() => undefined),
   useInput: selector => selector(inputState),
   inputActions: {

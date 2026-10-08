@@ -8,10 +8,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+
 import { SlotTestRuntime, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
-import type { ConversationBinding } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationBinding, ConversationViewSnapshotMap } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SessionSourceDescriptor } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import * as localePlugin from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '../src/client/apply.ts'
@@ -37,7 +39,17 @@ async function bench(snapshot: ExecutionSnapshot = EMPTY_EXECUTION_SNAPSHOT) {
 
   const executionStore = createSnapshotStore<ExecutionSnapshot | undefined>(snapshot)
   const uiConversation = new UiConversation(ctx, runtime.sessions)
-  const target = vi.fn((_name: string): ObservableSnapshot<ExecutionSnapshot | undefined> => executionStore)
+  // The framework's target resolver is generic over the snapshot map; this stub
+  // serves the execution ledger and an absent store for every other target.
+  const resolvedTargets: string[] = []
+  const target: ConversationBinding['target'] = <Target extends Extract<keyof ConversationViewSnapshotMap, string>>(
+    name: Target,
+  ): ObservableSnapshot<ConversationViewSnapshotMap[Target] | undefined> => {
+    resolvedTargets.push(name)
+    return (name === 'execution'
+      ? executionStore
+      : createSnapshotStore<undefined>(undefined)) as ObservableSnapshot<ConversationViewSnapshotMap[Target] | undefined>
+  }
   const binding: ConversationBinding = {
     snapshot: createSnapshotStore({ views: undefined, activeTargets: new Set<string>() } as never),
     openTurn: createSnapshotStore<number | undefined>(undefined),
@@ -55,9 +67,10 @@ async function bench(snapshot: ExecutionSnapshot = EMPTY_EXECUTION_SNAPSHOT) {
   await runtime.mount(localePlugin)
   const provide = vi.spyOn(ctx.uiSession, 'provide')
   const feature = await runtime.mount({ inject: [...inject], apply })
-  const descriptor = provide.mock.calls[0]?.[0]
+  // The spy erases provide's roster generics; restore the shape this plugin provides.
+  const descriptor = provide.mock.calls[0]?.[0] as SessionSourceDescriptor<['execution']> | undefined
   if (descriptor === undefined) throw new Error('ui-execution-viewer did not provide its standard source')
-  return { runtime, slots, feature, descriptor, executionStore, target, binding }
+  return { runtime, slots, feature, descriptor, executionStore, resolvedTargets, binding, reference }
 }
 
 afterEach(async () => {
@@ -76,22 +89,22 @@ describe('Execution viewer wiring', () => {
   })
 
   it('exposes the ledger through the session standard hook and reads the bound target', async () => {
-    const { descriptor, executionStore, target, binding } = await bench({
+    const { descriptor, executionStore, resolvedTargets, reference } = await bench({
       turns: [], stepCount: 2, runningCount: 0,
     })
     expect(descriptor.hooks).toEqual(['execution'])
-    const resolved = descriptor.resolve(binding)
+    const resolved = descriptor.resolve(reference.binding)
     const source = resolved.hooks?.execution
     if (source === undefined) throw new Error('the execution hook was not provided')
     expect(source.getSnapshot()).toEqual({ turns: [], stepCount: 2, runningCount: 0 })
-    expect(target).toHaveBeenCalledWith('execution')
+    expect(resolvedTargets).toContain('execution')
     const listener = vi.fn()
     source.subscribe(listener)
     executionStore.set({ turns: [], stepCount: 3, runningCount: 1 })
     expect(listener).toHaveBeenCalled()
     // One binding keeps one identity-stable source for the whole Session lifetime.
-    expect(descriptor.resolve(binding).hooks?.execution).toBe(source)
-    expect(target).toHaveBeenCalledTimes(1)
+    expect(descriptor.resolve(reference.binding).hooks?.execution).toBe(source)
+    expect(resolvedTargets).toHaveLength(1)
     // The source falls back to the empty ledger while a Session has no target snapshot.
     executionStore.set(undefined)
     expect(source.getSnapshot()).toEqual(EMPTY_EXECUTION_SNAPSHOT)

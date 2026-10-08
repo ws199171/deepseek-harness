@@ -99,6 +99,7 @@ function props(
     useInput: unused,
     useChat: unused,
     useTrajectory: unused,
+    useExecution: unused,
     inputActions: {
       captureInsertion: unused,
       insertText: unused,

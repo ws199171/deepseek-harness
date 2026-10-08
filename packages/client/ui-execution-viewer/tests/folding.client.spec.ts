@@ -15,7 +15,7 @@ import { executionViewDefinition } from '../src/client/view/view-definition.ts'
 import {
   assistantAttempt, assistantMessage, liveReasoning, liveToolDelta, reasoningRecord, resetLog,
   textRecord, toolCall, toolResult, turnEnd, turnStart,
-} from './fixtures.ts'
+} from './fixtures.client.ts'
 
 const REGISTERED: readonly ConversationNodeDefinition[] = [executionStepDefinition, executionThinkingDefinition]
 
