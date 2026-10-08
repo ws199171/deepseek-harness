@@ -343,6 +343,9 @@ describe('dsh-doc skill consolidation', () => {
     }
   })
 
+  // Reads every package README and its manifest. The corpus is large enough
+  // that the default 5s budget can be exceeded while the gate runs other
+  // workers in parallel, so this scan carries an explicit ceiling.
   it('maps package README kinds to their documentation standards', () => {
     const files = packageReadmes()
     expect(files.length).toBeGreaterThan(0)
@@ -351,7 +354,7 @@ describe('dsh-doc skill consolidation', () => {
       const metadata = readFrontmatter(file)
       expect(packageReadmeMetadataErrors(file, metadata), file).toEqual([])
     }
-  })
+  }, 30000)
 
   it('maps persistence transition records to their dedicated document kind', () => {
     const files = globSync('docs/persistence-changes/*.md', { cwd: root })
@@ -396,12 +399,14 @@ describe('dsh-doc skill consolidation', () => {
     }
   })
 
+  // Reads every package-level README; the same parallel-load allowance as the
+  // kind scan above applies.
   it('keeps every package README on the summary, contents, and Dev Note skeleton', () => {
     for (const file of packageReadmes().filter(file => file.split('/').length === 4)) {
       const source = readFileSync(resolve(root, file), 'utf8')
       expect(packageReadmeStructureErrors(file, source), file).toEqual([])
     }
-  })
+  }, 30000)
 
   it('rejects redundant fields and a kind that does not match the README position', () => {
     expect(packageReadmeMetadataErrors('packages/example/README.md', {

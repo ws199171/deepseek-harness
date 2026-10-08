@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The `guard/` group keeps the agent loop productive by watching for three common failure patterns. `repeat-tool-reminder` notices when the model repeats the exact same tool call and reminds it to change approach or finish, so a stuck loop stops burning time and tokens. `timeout-policy` puts a time limit on tool calls that declare one, so a hung call returns a clear timed-out error to the model instead of stalling the session. `orchestration-sentinel` notices when independent concurrency-safe calls are being issued one per step, or when one tool is being called repeatedly, and asks the model to batch or to use `run_code`, so the loop stops paying a round trip per call. The first two ship enabled in the `dsh` base bundle; a composition can tune or remove them. All three ship enabled in the `dsh` base bundle, and a composition can tune or remove any of them. The sentinel is the one member that is advisory guidance rather than a guard: it speaks only when the log shows the pattern it reacts to, so a session that already batches pays nothing for it.
+The `guard/` group keeps the agent loop productive by watching three failure patterns. `repeat-tool-reminder` notices the model repeating the same tool call and asks it to change approach or finish, so a stuck loop stops burning time and tokens. `timeout-policy` caps tool calls that declare a limit, so a hung call returns a clear timed-out error instead of stalling the session. `orchestration-sentinel` notices concurrency-safe calls issued one per step, or one tool called repeatedly, and asks the model to batch or use `run_code`. All three ship enabled in `dsh-base` and a composition can tune or remove any of them.
 
 ## Table of Contents
 

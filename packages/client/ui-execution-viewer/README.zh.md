@@ -13,6 +13,14 @@ kind: "package-reference"
 
 该视图是独立于 Chat 与 Trajectory 的 Conversation target，因此不会与 Chat 的过程分组争夺同一批行。账本在浏览器侧从客户端已经持有的事件窗口折叠而来：不新增 Host 服务、Remote 面、会话事件类型，也不声明配置。
 
+## 目录
+
+- [使用本包](#use-this-package)
+- [模型体验](#model-experience)
+- [已知限制与延期工作](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+<a id="use-this-package"></a>
 ## 使用本包
 
 在会话的视图环里打开执行过程页签。步骤按 `anchorSeq` 顺序出现在所属轮次之下；重连或向前翻页之后账本得到相同结论——它读取持久事件，实时分片只是对持久结算的预告。
@@ -29,6 +37,7 @@ kind: "package-reference"
 
 推理同理。持久结算里的 `reasoning-chunks` 记录对文本与时间跨度都是权威的，并会覆盖实时增量累积的内容。该结算上的 `interrupted` 是轮次中途取消的已记录标记，因此被中断的推理会报告为 interrupted，而不是从轮次边界反推。
 
+<a id="model-experience"></a>
 ## 模型体验
 
 无。该包在浏览器中渲染已记录的会话状态，不贡献任何面向模型的内容。

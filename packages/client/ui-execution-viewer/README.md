@@ -13,6 +13,13 @@ The Execution view shows one Session's work as a flat ledger: one row per reason
 
 The view is a Conversation target beside Chat and Trajectory, so it never competes with Chat's process grouping for the same rows. The browser folds its ledger from the Session window the Client already holds: no Host service, Remote face, Session event type, or configuration.
 
+## Table of Contents
+
+- [Use this package](#use-this-package)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
 ## Use this package
 
 Open the Execution tab in the conversation's view ring. Steps appear in `anchorSeq` order, grouped under their Turn, and the ledger reaches the same conclusions after a reconnect or an older page is prepended: it reads durable events, and live chunks only preview what the durable settlement will confirm.

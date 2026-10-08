@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package watches how the model is issuing tool calls and, at two points, adds one short reminder to the next request. When several consecutive steps each issue a single concurrency-safe call, it points out that independent work can be issued in one message, which the harness then runs in parallel. When one tool is called repeatedly and the PTC transport is available to that agent, it points out that `run_code` can do the repeating in one call. Both reminders describe only what was observed and attach a conditional suggestion: neither claims to know whether a dependency exists, and neither names calls as mergeable after the fact. The reminders are advisory and bounded — a session spends a small number of them, and a model that is already batching draws none.
+Watches how the model issues tool calls, then adds one short reminder to the next request. When consecutive steps each issue one concurrency-safe call, it points out that independent work can be issued together and run in parallel. When one tool is called repeatedly with the PTC transport available, it points out that `run_code` can do the repeating in one call. Both describe only what was observed and attach a conditional suggestion, claiming neither that a dependency exists nor that two calls are mergeable. They are advisory and bounded: a session spends a few; an already-batching model pays nothing.
 
 ## Table of Contents
 

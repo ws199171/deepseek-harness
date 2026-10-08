@@ -1,17 +1,19 @@
---- description: "项目上下文账本：项目身份、带信任梯度的持久项目记忆、机械式会话归档、触碰时投递的目录约定，以及自适应注入预算。" kind: "package-reference"
+---
+description: "项目上下文账本：项目身份、带信任梯度的持久项目记忆、机械式会话归档、触碰时投递的目录约定，以及自适应注入预算。"
+kind: "package-reference"
 ---
 
 # @deepseek-ai/dsh-context-ledger
 
 [English](README.md) | 中文
 
-## Summary
+## 概述
 
 一个项目作用域的账本，保存项目已经学到的东西。同一项目中的每个会话都收到一个运行时上下文块，其中承载项目身份与人工确认过的事实的标题行，因此后续会话一开始就已经知道它们。其余一切——正文、未确认的提案、已归档会话、目录约定——都不进入常驻载荷，而是通过七个 `ledger_*` 工具按需获取，或者在工具触碰到带有自己的 `CONTEXT.md` 的目录时投递一次。注入体积由档位上限约束，或根据会话剩余窗口自适应选择。
 
-## Table of Contents
+## 目录
 
-- [使用本包](#use-this-package) - [实现说明](#understand-the-implementation) - [进一步探索](#further-exploration) - [开发注记](#dev-note) - [模型体验](#model-experience) - [已知限制与推迟的工作](#known-limitations-and-deferred-work)
+- [使用本包](#use-this-package) - [实现说明](#understand-the-implementation) - [进一步探索](#further-exploration) - [开发备注](#dev-note) - [模型体验](#model-experience) - [已知限制与推迟的工作](#known-limitations-and-deferred-work)
 
 -----
 
@@ -50,7 +52,7 @@
 - [`docs/subsystems/compaction.md`](../../../docs/subsystems/compaction.zh.md) —— 块所依赖的保留机制，以及账本为何无需改动即可跨越替换引擎。 - [`packages/context/agent-instructions/`](../agent-instructions/README.zh.md) —— 负责行为性指令文件的兄弟包，本包刻意不重复它。 - [cordis 组合参考](../../preset/agent-preset/skills/cordis-composition-reference/references/packages.md) —— 本包配置的出处。
 
 <a id="dev-note"></a>
-## 开发注记
+## 开发备注
 
 记忆目录是带 JSON frontmatter 头的 markdown，一条事实一个文件，因为正文是人应当阅读和编辑的散文，也因为删掉目录就是完整且自明的遗忘方式。这里刻意没有派生索引文件：列举靠扫描目录，这保持了内容的单一真相来源，并消除了"缓存与来源不一致时该怎么办"这个问题。
 
@@ -138,6 +140,8 @@ session usage: 1200 tokens used of 200000 (deepseek/demo)
 普通的工具结果追加。没有任何账本调用会改写更早的消息。
 
 ## 已知限制与推迟的工作
+
+<a id="known-limitations-and-deferred-work"></a>
 
 - **压缩之后可能有一次请求拿不到块。** 快照投影运行在压力压缩所在的 pre-step waterfall 之前，因此压缩移除该快照的那一步会省略它，而下一次装配会恢复。溢出恢复可能让重试的那一次请求漏掉它。用"每次压缩后注入一份新副本"来补上它已被否决，因为那是用无界日志增长换一个有界且能自愈的间隙。
 - **只有仅限本地的记忆。** 条目存放在 Harness home 下、按项目根为键，因此在一个检出里记录的事实不会传播到另一个，而且一个项目路径就是一个账本。

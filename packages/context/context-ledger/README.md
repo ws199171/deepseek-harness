@@ -1,4 +1,6 @@
---- description: "The project context ledger: project identity, durable project memory with a trust gradient, a mechanical session archive, directory conventions delivered on touch, and an adaptive injection budget." kind: "package-reference"
+---
+description: "The project context ledger: project identity, durable project memory with a trust gradient, a mechanical session archive, directory conventions delivered on touch, and an adaptive injection budget."
+kind: "package-reference"
 ---
 
 # @deepseek-ai/dsh-context-ledger

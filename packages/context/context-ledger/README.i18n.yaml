@@ -2,18 +2,18 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/context/context-ledger/README.md
-/description-the-project-context-ledger-project-identity-durable-project-memory-with-a-trust-gradient-a-mechanical-session-archive-directory-conventions-delivered-on-touch-and-an-adaptive-injection-budget-kind-package-reference:
-  en: 80346bcfa85e3312
-  zh: 62e0b31b97564250
+/:
+  en: 2f5aff3535d40177
+  zh: a71dd6958e4d3851
 /deepseek-ai-dsh-context-ledger:
   en: 80f96fe4a462d01e
   zh: 27f0a0b28b0fd641
 /deepseek-ai-dsh-context-ledger/summary:
   en: 9d647763ab3be3a2
-  zh: 71e288228df696c5
+  zh: 85af8dfa6d8e9a12
 /deepseek-ai-dsh-context-ledger/table-of-contents:
   en: bf61eaaf3b311d79
-  zh: 22ce51f6a649c9ba
+  zh: e10853a6e425792f
 /deepseek-ai-dsh-context-ledger/use-this-package:
   en: 669ff86e58f88ccb
   zh: f24e8305cc583798
@@ -25,7 +25,7 @@
   zh: cba80a5b914e0922
 /deepseek-ai-dsh-context-ledger/dev-note:
   en: 35119bee25a05377
-  zh: 5792a27aeaa0111c
+  zh: f3cdddc2dab548d1
 /deepseek-ai-dsh-context-ledger/model-experience:
   en: 215e7ba838619b7b
   zh: a311da3843709f90
@@ -76,4 +76,4 @@
   zh: da8d974da81f4a6f
 /deepseek-ai-dsh-context-ledger/known-limitations-and-deferred-work:
   en: 0fc34e5d659d5531
-  zh: 4d076965e3a70c91
+  zh: 600208720ddbbaa8

@@ -1,4 +1,6 @@
---- description: "The project context ledger over dsh-base: mounts project identity, durable project memory, a mechanical session archive, directory conventions, and an adaptive injection budget, as one opt-in bundle." kind: "package-reference"
+---
+description: "The project context ledger over dsh-base: mounts project identity, durable project memory, a mechanical session archive, directory conventions, and an adaptive injection budget, as one opt-in bundle."
+kind: "package-bundle"
 ---
 
 # @deepseek-ai/dsh-context-ledger-bundle
