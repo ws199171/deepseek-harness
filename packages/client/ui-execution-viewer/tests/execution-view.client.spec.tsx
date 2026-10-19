@@ -48,6 +48,10 @@ const unused = (): never => { throw new Error('This fixture does not consume thi
 const standard = {
   sessionId: 'session-1' as ViewProps['sessionId'],
   useSession: unused,
+  useAccess: unused,
+  useRemoteAccess: unused,
+  useSessionAccess: unused,
+  useWorkspaceAccess: unused,
   useProjection: unused,
   useConversation: unused,
   useInput: unused,

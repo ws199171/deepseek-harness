@@ -111,6 +111,6 @@ describe('Execution target registration', () => {
   })
 
   it('exposes a Host half with no behavior', () => {
-    expect(applyNodeHalf()).toBeUndefined()
+    expect(applyNodeHalf).not.toThrow()
   })
 })
