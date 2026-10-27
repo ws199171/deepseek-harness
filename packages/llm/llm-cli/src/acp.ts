@@ -27,6 +27,18 @@ export type AcpTurnEvent =
   | { kind: 'text'; text: string }
   | { kind: 'thought'; text: string }
 
+/**
+ * The CLI session one conversation is bound to, and whether this child opened it
+ * fresh. A lease is what tells the caller whether the CLI already holds the
+ * conversation: a fresh session holds none, so the call has to carry the history.
+ */
+export interface AcpSessionLease {
+  /** Session id the CLI itself assigned. */
+  sessionId: string
+  /** Whether this child created the session (as opposed to adopting an existing one). */
+  created: boolean
+}
+
 /** One permission option the CLI offers for a tool call it wants to run. */
 export interface AcpPermissionOption {
   /** Identifier the answer selects. */
@@ -159,27 +171,58 @@ export class AcpTransport {
   constructor(private readonly options: AcpTransportOptions) {}
 
   /**
-   * The ACP session one conversation is bound to, created on first use.
+   * The ACP session one conversation is bound to, opened on first use.
+   *
+   * A conversation this child already serves keeps its session. Otherwise the
+   * caller's `adopt` id — the session a previous child created for the same
+   * conversation — is loaded through `session/load`, which is what keeps the
+   * CLI's own history across a restarted harness or a replaced child. A failed
+   * load (the CLI forgot it, or does not support loading) falls back to a fresh
+   * session, and the returned lease says so, which is the caller's signal that
+   * this call must carry the conversation itself.
+   *
    * @param key - the harness conversation this session belongs to.
    * @param cwd - workspace the session runs in.
-   * @returns the session id.
+   * @param adopt - CLI session id a previous child created for this conversation.
+   * @returns the session id and whether this child created it.
    */
-  async sessionFor(key: string, cwd: string): Promise<string> {
+  async openSession(key: string, cwd: string, adopt?: string): Promise<AcpSessionLease> {
     const existing = this.sessions.get(key)
-    if (existing !== undefined) return existing
+    if (existing !== undefined) return { sessionId: existing, created: false }
     await this.ensureStarted()
+    if (adopt !== undefined && await this.loadSession(cwd, adopt)) {
+      this.sessions.set(key, adopt)
+      return { sessionId: adopt, created: false }
+    }
     const created = await this.request('session/new', { cwd, mcpServers: [] })
     const sessionId = asRecord(created)?.sessionId
     if (typeof sessionId !== 'string' || sessionId.length === 0) {
       throw new Error('llm-cli: the CLI created no session for this conversation')
     }
     this.sessions.set(key, sessionId)
-    return sessionId
+    return { sessionId, created: true }
+  }
+
+  /**
+   * Ask the child to resume a session a previous child created.
+   * @param cwd - workspace the session runs in.
+   * @param sessionId - CLI session id to load.
+   * @returns whether the child resumed it; a refusal is not this call's failure.
+   */
+  private async loadSession(cwd: string, sessionId: string): Promise<boolean> {
+    try {
+      await this.request('session/load', { sessionId, cwd, mcpServers: [] })
+      return true
+    } catch {
+      // The child's own answer, not this client's failure: the caller opens a
+      // fresh session instead, so the conversation continues without its history.
+      return false
+    }
   }
 
   /**
    * Run one model call as a prompt on the session that owns the conversation.
-   * @param sessionId - the ACP session from {@link sessionFor}.
+   * @param sessionId - the ACP session from {@link openSession}.
    * @param text - the prompt text this call carries.
    * @param signal - caller cancellation, forwarded as `session/cancel`.
    * @returns the answer's incremental events, ending when the turn ends.

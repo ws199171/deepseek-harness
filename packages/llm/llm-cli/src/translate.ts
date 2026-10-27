@@ -51,15 +51,43 @@ export function systemTextOf(messages: readonly RequestMessage[], system?: strin
   return undefined
 }
 
+/** One role-prefixed line of the flattened conversation, and who authored it. */
+interface ConversationPart {
+  /** The rendered `Role: text` line. */
+  readonly text: string
+  /** Whether a human wrote it, which is what a trailing input replaces. */
+  readonly human: boolean
+}
+
 /**
- * Flatten the harness conversation into one prompt text for a stateless call.
+ * Render the conversation as role-prefixed lines, in order.
  *
  * Only human-visible conversation crosses: user text and prior assistant
- * answers, each prefixed with its role. System-role messages are excluded
- * because {@link systemTextOf} owns the system prompt, and developer and
- * tool-role content is excluded because the delegated CLI owns its tool loop —
- * forwarding it would present harness tool scaffolding to a second agent as if
- * it were conversation.
+ * answers. System-role messages are excluded because {@link systemTextOf} owns
+ * the system prompt, and developer and tool-role content is excluded because
+ * the delegated CLI owns its tool loop — forwarding it would present harness
+ * tool scaffolding to a second agent as if it were conversation.
+ *
+ * @param messages - ordered conversation messages.
+ * @returns one part per text block, in conversation order.
+ */
+function conversationParts(messages: readonly RequestMessage[]): ConversationPart[] {
+  const parts: ConversationPart[] = []
+  for (const message of messages) {
+    if (message.role !== 'user' && message.role !== 'assistant') continue
+    for (const text of textBlocksOf(message)) {
+      if (text.trim().length === 0) continue
+      parts.push({
+        text: message.role === 'assistant' ? `Assistant: ${text}` : `User: ${text}`,
+        human: message.role === 'user' && message.source?.kind === 'user',
+      })
+    }
+  }
+  return parts
+}
+
+/**
+ * Flatten the harness conversation into one prompt text for a stateless call.
  *
  * Plugin-injected user-role context is user-role conversation and therefore
  * *is* forwarded here: a stateless call has no CLI-side history, so dropping it
@@ -71,16 +99,32 @@ export function systemTextOf(messages: readonly RequestMessage[], system?: strin
  * @returns the complete prompt, or `undefined` when nothing text-worthy exists.
  */
 export function flattenConversation(messages: readonly RequestMessage[]): string | undefined {
-  const parts: string[] = []
-  for (const message of messages) {
-    if (message.role !== 'user' && message.role !== 'assistant') continue
-    for (const text of textBlocksOf(message)) {
-      if (text.trim().length === 0) continue
-      parts.push(message.role === 'assistant' ? `Assistant: ${text}` : `User: ${text}`)
-    }
-  }
+  const parts = conversationParts(messages)
   if (parts.length === 0) return undefined
-  return parts.join('\n\n')
+  return parts.map(part => part.text).join('\n\n')
+}
+
+/**
+ * The conversation as it stood before the newest human input, for a delegated
+ * CLI that owns no history of it.
+ *
+ * The ACP transport keeps the CLI's own session alive, so an ongoing
+ * conversation normally never needs this. It is the fallback for the cases
+ * where that session is gone — a restarted harness, a replaced child, or a CLI
+ * that refused to resume one — and the CLI would otherwise answer the newest
+ * message knowing nothing that came before it.
+ *
+ * @param messages - ordered conversation messages.
+ * @returns the prior turns, or `undefined` when only the newest input exists.
+ */
+export function conversationRecap(messages: readonly RequestMessage[]): string | undefined {
+  const parts = conversationParts(messages)
+  const newest = parts.findLastIndex(part => part.human)
+  // Everything up to the newest input, in order: what follows it is this call's
+  // own context, and repeating it ahead of that input would reorder the turn.
+  const recap = newest === -1 ? parts : parts.slice(0, newest)
+  if (recap.length === 0) return undefined
+  return recap.map(part => part.text).join('\n\n')
 }
 
 /**

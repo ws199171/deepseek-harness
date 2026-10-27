@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { BlockAssembler, createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
@@ -70,6 +70,14 @@ async function boot(options: BootOptions = {}) {
 /** A human-authored user message. */
 function user(text: string) {
   return createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })
+}
+
+/** A model-authored assistant message. */
+function assistant(text: string) {
+  return createAssistantMessage({
+    content: [{ type: 'text', text }],
+    source: { provider: PROVIDER, model: 'gpt-5.6-sol' },
+  })
 }
 
 /** Run one request through the real route and return the assembled answer text. */
@@ -255,6 +263,38 @@ describe('llm-cli ACP transport', () => {
       .map(chunk => chunk.text)
       .join('')
     expect(text).toBe('call:2 session-1 hi')
+  })
+
+  it('resumes the conversation session when a replaced child serves the next call', async () => {
+    const { ctx } = await boot({ config: FAKE_ACP_CLI })
+    const sessionId = 'known' as NonNullable<GenerateOptions['sessionId']>
+    await chunksOf(ctx, { sessionId, messages: [user('first')] })
+
+    // The model rides the child's argv, so naming another one replaces the
+    // process. The conversation survives it: the call is answered from
+    // `session-1` (loaded, not created) and still carries only the newest text.
+    const text = (await chunksOf(ctx, {
+      sessionId,
+      model: 'gpt-5.6-sol-other',
+      messages: [user('first'), assistant('answer one'), user('second')],
+    })).filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text).join('')
+    expect(text).toBe('call:1 session-1 loaded:1 second')
+  })
+
+  it('carries the conversation when the CLI cannot resume its own session', async () => {
+    // A CLI that keeps no session store refuses the load, which is the state a
+    // restarted harness meets when its child never shared one: the conversation
+    // has to reach the CLI with the call instead.
+    const { ctx } = await boot({ config: { ...FAKE_ACP_CLI, env: { FAKE_ACP_FORGET: '1' } } })
+    const sessionId = 'known' as NonNullable<GenerateOptions['sessionId']>
+    await chunksOf(ctx, { sessionId, messages: [user('first')] })
+
+    const text = (await chunksOf(ctx, {
+      sessionId,
+      model: 'gpt-5.6-sol-other',
+      messages: [user('first'), assistant('answer one'), user('second')],
+    })).filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text).join('')
+    expect(text).toBe('call:1 session-1 User: first\n\nAssistant: answer one\n\nUser: second')
   })
 
   it('gives every stateless call its own session', async () => {

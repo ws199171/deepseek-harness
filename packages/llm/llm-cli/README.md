@@ -74,6 +74,8 @@ Every field is optional in YAML and defaults to CodeBuddy. A missing section sti
 - `print` (the default) starts the arguments in `args` for that call and reads its `stream-json` stdout. `--include-partial-messages` is what makes the answer arrive while the CLI is still generating it; without it the caller waits out the whole run and then receives one message.
 - `acp` starts one child per route with `acpArgs` and prompts a session on it, so the CLI's cold start is paid once rather than once per call. The conversation's ACP session owns its history, and the CLI's own thinking arrives as its own block instead of staying inside the child.
 
+A conversation outlives the child that served it: changing the model replaces the process, because the model rides its argv. The route therefore remembers which CLI session each conversation owns, and a new child resumes it with `session/load` instead of starting empty — a resumed harness session continues its own conversation the same way. When the CLI refuses the load, or keeps no session store at all, the call carries the conversation with it: the prior turns are flattened ahead of the newest input, so the CLI never answers as if the conversation had just begun.
+
 ### Bounding the delegated loop
 
 `tools`, `maxTurns`, and `effort` reach the CLI's own agent loop, which is otherwise unbounded from here when it is. An empty `tools` disables every built-in tool, which is the closest this route comes to a bare model call: the CLI answers without running anything. `maxTurns` caps the CLI's agentic turns, and `effort` names the reasoning level it forwards. Leaving any of the three out leaves the CLI's own default in charge — which is the right choice unless the deployment has a reason to want otherwise.
@@ -84,7 +86,7 @@ The plugin offers the CLI's own catalog rather than shipping one: it runs `model
 
 ### Sessions
 
-A request carrying `sessionId` forwards only the newest human-authored user text, with `sessionIdArg` naming the CLI's own session that already owns the history. Plugin-injected user-role context also uses the user role, so the message source — not the role alone — decides which text is the human's. Stateless callers such as session titles and compaction flatten the whole conversation instead, because they have no CLI-side history to continue.
+A request carrying `sessionId` forwards only the newest human-authored user text, with `sessionIdArg` naming the CLI's own session that already owns the history. Plugin-injected user-role context also uses the user role, so the message source — not the role alone — decides which text is the human's. Stateless callers such as session titles and compaction flatten the whole conversation instead, because they have no CLI-side history to continue. The `acp` transport applies the same rule to a session it just opened: a conversation the CLI is not continuing is sent in full, so the newest text is never the only thing the CLI knows about it.
 
 -----
 
@@ -147,7 +149,7 @@ Each request is one fresh `codebuddy --print --output-format stream-json` child.
 
 #### Token effect
 
-One positional prompt plus one system-prompt argument per call. Prompt length follows the newest human text for a persistent session and the whole conversation for a stateless one. The CLI's own history, its internal tool activity, and its provider-side accounting never enter the harness request.
+One positional prompt plus one system-prompt argument per call. Prompt length follows the newest human text for a persistent session and the whole conversation for a stateless one; a conversation the CLI is not continuing pays the whole-conversation length once. The CLI's own history, its internal tool activity, and its provider-side accounting never enter the harness request.
 
 #### KV Cache effect
 

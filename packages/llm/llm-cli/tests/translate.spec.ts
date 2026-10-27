@@ -4,7 +4,7 @@ import {
   createSystemMessage,
   createUserMessage,
 } from '@deepseek-ai/dsh-llm'
-import { flattenConversation, systemTextOf, textBlocksOf, trailingUserText } from '../src/translate.ts'
+import { conversationRecap, flattenConversation, systemTextOf, textBlocksOf, trailingUserText } from '../src/translate.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   /** A harness-owned user-role context block, as a plugin producer declares one. */
@@ -76,6 +76,30 @@ describe('flattenConversation', () => {
   it('returns undefined when nothing text-worthy exists', () => {
     expect(flattenConversation([])).toBeUndefined()
     expect(flattenConversation([user('  ')])).toBeUndefined()
+  })
+})
+
+describe('conversationRecap', () => {
+  it('renders the turns before the newest human input', () => {
+    expect(conversationRecap([user('first'), assistant('answer'), user('second')]))
+      .toBe('User: first\n\nAssistant: answer')
+  })
+
+  it('stops at the newest human input, whatever follows it', () => {
+    // The loop appends plugin context behind the human's newest message. That
+    // input and the context belong to this call, so repeating them ahead of it
+    // would reorder the turn the CLI reads.
+    expect(conversationRecap([user('first'), assistant('answer'), user('second'), injected('runtime context')]))
+      .toBe('User: first\n\nAssistant: answer')
+  })
+
+  it('returns undefined when the conversation holds nothing before the newest input', () => {
+    expect(conversationRecap([])).toBeUndefined()
+    expect(conversationRecap([user('only')])).toBeUndefined()
+  })
+
+  it('keeps the whole conversation when it carries no human input', () => {
+    expect(conversationRecap([assistant('answer')])).toBe('Assistant: answer')
   })
 })
 

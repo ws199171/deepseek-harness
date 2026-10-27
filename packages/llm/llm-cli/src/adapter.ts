@@ -25,9 +25,9 @@ import type {
 } from '@deepseek-ai/dsh-llm'
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { AcpTransport } from './acp.ts'
-import type { AcpTransportOptions, AcpTurnEvent } from './acp.ts'
+import type { AcpSessionLease, AcpTransportOptions, AcpTurnEvent } from './acp.ts'
 import { parseCliLine } from './wire.ts'
-import { flattenConversation, systemTextOf, trailingUserText } from './translate.ts'
+import { conversationRecap, flattenConversation, systemTextOf, trailingUserText } from './translate.ts'
 
 /** One optional model entry the CLI route advertises. */
 export interface CliCatalogModel {
@@ -189,6 +189,12 @@ export class CliAdapter extends LlmAdapter {
   private readonly resolveSessionCwd: NonNullable<CliAdapterOptions['resolveSessionCwd']>
   /** The long-lived ACP connection, replaced when what starts its child changes. */
   private acp: { signature: string; transport: AcpTransport } | undefined
+  /**
+   * CLI sessions this route opened, by harness conversation. Held here rather
+   * than in the transport because a replaced child must be able to resume them:
+   * the id names a session in the CLI's own store, not in one child.
+   */
+  private readonly acpSessions = new Map<string, string>()
   /** Numbers the throwaway sessions a stateless call gets. */
   private statelessCalls = 0
 
@@ -253,7 +259,10 @@ export class CliAdapter extends LlmAdapter {
       : facts.cwd
 
     if (facts.transport === 'acp') {
-      yield* this.streamAcp(facts, options, prompt, cwd, signal)
+      // The CLI's own session owns the history; a call whose session is gone
+      // has to carry it, so the prior turns travel beside the newest text.
+      const recap = sessionId === undefined ? undefined : conversationRecap(options.messages)
+      yield* this.streamAcp(facts, options, prompt, recap, cwd, signal)
       return
     }
 
@@ -416,6 +425,8 @@ export class CliAdapter extends LlmAdapter {
    * @param facts - resolved executable facts for this operation.
    * @param options - the model call being answered.
    * @param prompt - the text this call carries.
+   * @param recap - the conversation before this call's newest human text, sent
+   *   instead of `prompt` when the CLI session is new and holds no history.
    * @param cwd - workspace the conversation's session runs in.
    * @param signal - caller cancellation, forwarded as a session cancel.
    * @returns the call's chunks, ending with its terminal.
@@ -424,6 +435,7 @@ export class CliAdapter extends LlmAdapter {
     facts: CliConnectionOptions,
     options: GenerateOptions,
     prompt: string,
+    recap: string | undefined,
     cwd: string,
     signal: AbortSignal | undefined,
   ): AsyncIterable<StreamChunk> {
@@ -432,14 +444,21 @@ export class CliAdapter extends LlmAdapter {
     // reusing one would hand the next title the previous title's history.
     this.statelessCalls += 1
     const key = options.sessionId ?? `stateless:${String(this.statelessCalls)}`
-    let session: string
+    let lease: AcpSessionLease
     try {
-      session = await transport.sessionFor(key, cwd)
+      // A conversation that outlived this child (restart, model switch) resumes
+      // the session the CLI still holds; the lease says whether it did.
+      lease = await transport.openSession(key, cwd, this.acpSessions.get(key))
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error)
       yield failureChunk(`llm-cli: the CLI session could not be opened: ${message}`, CLI_START_FAILED_CODE, signal)
       return
     }
+    this.acpSessions.set(key, lease.sessionId)
+    // A session this child just created holds no history, so the call carries
+    // it: the newest input stays the last thing the CLI reads.
+    const promptText = lease.created && recap !== undefined ? `${recap}\n\nUser: ${prompt}` : prompt
+    const session = lease.sessionId
 
     let kind: AcpTurnEvent['kind'] | undefined
     let index = -1
@@ -448,7 +467,7 @@ export class CliAdapter extends LlmAdapter {
     try {
       // The CLI reports thinking and answer text as separate streams; a block
       // ends where the next stream takes over, and the last one at the end.
-      for await (const event of transport.prompt(session, prompt, signal)) {
+      for await (const event of transport.prompt(session, promptText, signal)) {
         if (kind !== event.kind) {
           if (kind !== undefined) yield { type: 'block-end', index, block: answerBlock(kind, kind === 'text' ? text : reasoning) }
           kind = event.kind
