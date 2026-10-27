@@ -6,6 +6,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: "Run two shell commands: wait for cancellation, then write skipped.txt. {{clock}}"
 - button "Copy"
 - status: Stopped

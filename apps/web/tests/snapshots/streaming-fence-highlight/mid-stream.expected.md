@@ -7,6 +7,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Stream one TypeScript fence for the highlighting snapshot. {{clock}}
 - button "Copy"
 - text: ts

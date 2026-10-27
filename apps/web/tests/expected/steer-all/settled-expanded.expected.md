@@ -7,6 +7,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Use the ask_user_question tool to ask me exactly one question with id "checkpoint", question "Ready to continue?", header "Checkpoint", and options labeled "Yes" and "No". After I answer, reply with one short sentence acknowledging my answer and stop. {{clock}}
 - button "Copy"
 - status: Completed
@@ -14,6 +15,11 @@
 - button "Asked questions" [expanded]
 - button "Think The user wants me to ask them a checkpoint question first, then continue with whatever they interject. Let me do exactly that."
 - button "Ask question 1/1 answered"
+- group "Questions and answers":
+  - term: Checkpoint Ready to continue?
+  - definition: "Yes"
+  - text: {{clock}}
+  - button "Copy"
 - text: "Interjection: include the word BANANA in your final reply. {{clock}}"
 - button "Copy"
 - text: "Interjection: include the word ORANGE in your final reply. {{clock}}"

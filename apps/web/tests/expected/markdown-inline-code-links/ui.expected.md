@@ -5,6 +5,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Show the local preview URL. {{clock}}
 - button "Copy"
 - status: Completed

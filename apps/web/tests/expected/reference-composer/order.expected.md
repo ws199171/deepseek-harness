@@ -6,6 +6,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Research notes what changed? Referenced session · Research notes {{clock}}
 - button "Copy"
 - status: Completed

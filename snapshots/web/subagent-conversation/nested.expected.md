@@ -11,6 +11,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Give one concrete event sourcing example. {{clock}}
 - button "Copy"
 - status: Completed

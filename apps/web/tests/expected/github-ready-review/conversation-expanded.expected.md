@@ -17,6 +17,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - button "GitHub event received {{clock}}":
   - text: GitHub event received
   - time: {{clock}}

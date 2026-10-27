@@ -6,6 +6,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Show the Markdown image policy. {{clock}}
 - button "Copy"
 - status: Completed

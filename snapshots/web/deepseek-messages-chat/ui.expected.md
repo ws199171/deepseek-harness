@@ -7,6 +7,7 @@
     - tab "对话" [selected]
     - tab "轨迹"
     - tab "执行过程"
+  - button "更多会话视图"
 - text: 只回复 MESSAGES_WEB_READY，不调用工具。 {{clock}}
 - button "复制"
 - status: 已完成

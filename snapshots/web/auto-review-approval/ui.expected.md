@@ -8,6 +8,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Clean up the stale build log. {{clock}}
 - button "Copy"
 - status: Completed
@@ -34,6 +35,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Clean up the stale build log. {{clock}}
 - button "Copy"
 - status: Completed

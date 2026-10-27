@@ -6,6 +6,7 @@
     - tab "Chat" [selected]
     - tab "Trajectory"
     - tab "Execution"
+  - button "More conversation views"
 - text: Render adjacent CJK strong emphasis. {{clock}}
 - button "Copy"
 - status: Completed

@@ -351,6 +351,7 @@ function panelProps(data: WorkflowRunChatData, sessions = listState(), openSessi
     useExecution: selector => selector({ turns: [], stepCount: 0, runningCount: 0 }),
     useInput: () => { throw new Error('unused') },
     inputActions: {
+      insertQuote: () => false,
       captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }),
       insertText: () => false,
       setDraft: () => {},
