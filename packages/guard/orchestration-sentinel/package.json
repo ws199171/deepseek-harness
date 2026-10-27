@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-orchestration-sentinel",
   "description": "Condition-triggered orchestration guidance: reminds the model when independent concurrency-safe calls are split across steps, and suggests run_code when one tool repeats",
-  "version": "0.1.7-rc.2",
+  "version": "0.2.1-rc.3",
   "publishConfig": {
     "access": "public"
   },
@@ -48,6 +48,8 @@
     "@deepseek-ai/dsh-session": "workspace:*",
     "@deepseek-ai/dsh-session-projection": "workspace:*",
     "@deepseek-ai/dsh-system-prompt": "workspace:*",
+    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
+    "@deepseek-ai/dsh-tool-testkit": "workspace:*",
     "@deepseek-ai/dsh-tools": "workspace:*",
     "@deepseek-ai/cordis": "workspace:~"
   }

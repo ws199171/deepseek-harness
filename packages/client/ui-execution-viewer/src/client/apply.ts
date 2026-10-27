@@ -20,7 +20,7 @@ import { StepDetailPanel } from './components/StepDetailPanel.tsx'
 import { EMPTY_EXECUTION_SNAPSHOT, type ExecutionSnapshot } from './contract/execution.ts'
 import { registerExecutionStepDefinition } from './definitions/step-definition.ts'
 import { registerExecutionThinkingDefinition } from './definitions/thinking-definition.ts'
-import { en, NS, zh } from './locales.ts'
+import { de, en, es, fr, ja, NS, pt, ru, zh } from './locales.ts'
 import { registerExecutionConversationView } from './view/view-definition.ts'
 
 /** Required services: the view slot, the Session standard seats, the Conversation registries, and copy. */
@@ -31,7 +31,7 @@ export const inject = ['slots', 'uiSession', 'uiConversation', 'locale']
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-execution-viewer: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-execution-viewer: dictionaries')
   // Registration-time text (the view tab label) reads through the bound
   // translate as a thunk, so it follows the active locale without re-registering.
   const t = ctx.locale.bind(NS)

@@ -19,11 +19,12 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { renderContextSnapshot } from '@deepseek-ai/dsh-system-prompt'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
+import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
 
 import * as sessionPlugin from '@deepseek-ai/dsh-session'
 import * as systemPromptPlugin from '@deepseek-ai/dsh-system-prompt'
 import * as toolsPlugin from '@deepseek-ai/dsh-tools'
+import * as nativeToolExecutorPlugin from '@deepseek-ai/dsh-tool-executor-native'
 import * as projectionPlugin from '@deepseek-ai/dsh-session-projection'
 import * as sentinelPlugin from '../src/index.ts'
 
@@ -64,6 +65,7 @@ async function boot(sentinelConfig: string): Promise<Context> {
     ['@deepseek-ai/dsh-session', sessionPlugin],
     ['@deepseek-ai/dsh-system-prompt', systemPromptPlugin],
     ['@deepseek-ai/dsh-tools', toolsPlugin],
+    ['@deepseek-ai/dsh-tool-executor-native', nativeToolExecutorPlugin],
     ['@deepseek-ai/dsh-session-projection', projectionPlugin],
     ['@deepseek-ai/dsh-orchestration-sentinel', sentinelPlugin],
   ])

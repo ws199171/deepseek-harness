@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-execution-viewer",
   "description": "Browser Execution view: a flat, auditable ledger of one Turn's steps with live reasoning, status, and duration",
-  "version": "0.1.7-rc.2",
+  "version": "0.2.1-rc.3",
   "publishConfig": {
     "access": "public"
   },

@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { DESKTOP_HOST_RUNTIME_FILES, DESKTOP_PACKAGES_DIR } from '../src/core-package-set.ts'
+import { readWorkspaceManifests } from '../../../scripts/check-workspace-constraints.ts'
 import {
   assertDesktopHostPackageFiles,
   prepareDesktopPackageSet,
@@ -50,6 +51,24 @@ describe('desktop package-set selection', () => {
       '@deepseek-ai/dsh-desktop-host',
       '@deepseek-ai/platform-package',
     ])
+  })
+
+  it('ships the CLI model bundle and adapter from the Desktop production manifests', () => {
+    const available = new Map<string, PackedDesktopPackage>()
+    for (const { manifest } of readWorkspaceManifests(resolve(import.meta.dirname, '../../..'))) {
+      if (typeof manifest.name === 'string') available.set(manifest.name, packed(manifest.name, { ...manifest }))
+    }
+    const required = ['@deepseek-ai/dsh-llm-cli-bundle', '@deepseek-ai/dsh-llm-cli']
+    expect(available.get('@deepseek-ai/dsh')?.manifest.dependencies)
+      .toHaveProperty('@deepseek-ai/dsh-llm-cli-bundle', 'workspace:*')
+    expect(selectDesktopPackageClosure(available, { platform: 'darwin', arch: 'arm64' }).map(entry => entry.manifest.name))
+      .toEqual(expect.arrayContaining(required))
+    for (const name of required) {
+      const incomplete = new Map(available)
+      incomplete.delete(name)
+      expect(() => selectDesktopPackageClosure(incomplete, { platform: 'darwin', arch: 'arm64' }))
+        .toThrow(`requires unpacked package ${name}`)
+    }
   })
 
   it.each([

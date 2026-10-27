@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-context-ledger-bundle",
   "description": "The project context ledger over dsh-base: mounts project identity, durable project memory, a mechanical session archive, directory conventions, and an adaptive injection budget, opt-in",
-  "version": "0.1.7-rc.2",
+  "version": "0.2.1-rc.3",
   "publishConfig": {
     "access": "public"
   },

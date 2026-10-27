@@ -68,12 +68,6 @@ interface SourceView {
   readonly sections?: readonly { readonly name?: string; readonly text?: string }[]
 }
 
-declare module '@deepseek-ai/dsh-session-projection/types' {
-  interface SessionProjectionStateMap {
-    orchestrationSentinel: SentinelState
-  }
-}
-
 const stepSchema = z.object({
   turn: z.number().int(),
   step: z.number().int(),

@@ -8,6 +8,7 @@
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ComponentProps } from 'react'
+import type { GlobalStandardProps, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ExecutionSnapshot, ExecutionStep } from '../src/client/contract/execution.ts'
 import type {} from '../src/client/contract/slots.ts'
 import { ExecutionStepRow } from '../src/client/components/ExecutionStepRow.tsx'
@@ -45,7 +46,7 @@ function runningStep(overrides: Partial<ExecutionStep> = {}): ExecutionStep {
 const unused = (): never => { throw new Error('This fixture does not consume this seat') }
 
 /** The framework's GlobalStandardProps & SessionStandardProps kit, as slot components receive it. */
-const standard = {
+const standard: GlobalStandardProps & SessionStandardProps = {
   sessionId: 'session-1' as ViewProps['sessionId'],
   useSession: unused,
   useAccess: unused,
@@ -65,6 +66,7 @@ const standard = {
   useResource: unused,
   useWorkspaces: unused,
   inputActions: {
+    insertQuote: unused,
     captureInsertion: unused,
     insertText: unused,
     setDraft: unused,

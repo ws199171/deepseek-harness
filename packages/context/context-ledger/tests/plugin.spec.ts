@@ -4,6 +4,7 @@ import { basename, join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { type PromptContext } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
+import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { BUDGET_PROFILES } from '../src/budget.ts'
 import { CONTEXT_NAME } from '../src/identity.ts'
@@ -235,7 +236,7 @@ async function createAgent(
  * @returns The result value.
  */
 async function runTool(f: Fixture, agent: StubAgent, toolName: string, args: unknown): Promise<unknown> {
-  const result = await f.ctx.tools.execute({
+  const result = await executeToolFixture(f.ctx, {
     name: toolName,
     arguments: args,
     callId: 'call-1' as never,
@@ -928,7 +929,7 @@ describe('wiring edges', () => {
     const f = await fixture({ paths })
     await createAgent(f, paths.project)
 
-    const result = await f.ctx.tools.execute({
+    const result = await executeToolFixture(f.ctx, {
       name: 'ledger_read',
       arguments: { id: 'x' },
       callId: 'call-1' as never,
