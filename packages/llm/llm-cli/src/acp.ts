@@ -28,6 +28,18 @@ export type AcpTurnEvent =
   | { kind: 'thought'; text: string }
 
 /**
+ * How one delegated turn ended, as the CLI itself reported it. A turn the CLI
+ * refused or cancelled still answers `session/prompt`; only this outcome tells
+ * the caller that the empty answer is a failure rather than a short reply.
+ */
+export interface AcpPromptOutcome {
+  /** The ACP stop reason the CLI reported for the turn. */
+  readonly stopReason: string
+  /** The CLI's own failure detail reported beside the reason, when it gave one. */
+  readonly detail?: string
+}
+
+/**
  * The CLI session one conversation is bound to, and whether this child opened it
  * fresh. A lease is what tells the caller whether the CLI already holds the
  * conversation: a fresh session holds none, so the call has to carry the history.
@@ -37,6 +49,16 @@ export interface AcpSessionLease {
   sessionId: string
   /** Whether this child created the session (as opposed to adopting an existing one). */
   created: boolean
+}
+
+/** One model the CLI advertises when it opens a session. */
+export interface AcpCatalogModel {
+  /** Model id the CLI accepts for `--model`. */
+  readonly id: string
+  /** Display name the CLI reports, when it reports one. */
+  readonly name?: string
+  /** Input capacity the CLI discloses for this id, when it discloses one. */
+  readonly contextWindow?: number
 }
 
 /** One permission option the CLI offers for a tool call it wants to run. */
@@ -65,6 +87,22 @@ export interface AcpTransportOptions {
    * expects no tool activity wants.
    */
   selectPermission?: (options: readonly AcpPermissionOption[]) => string | undefined
+  /**
+   * Ceiling in milliseconds for one prompted turn, or absent for none. The CLI
+   * runs its whole agent loop inside one prompt, so this is the only bound the
+   * client can put on a run that never converges: on expiry the turn is
+   * cancelled and the caller is told it outlived its deadline.
+   */
+  turnTimeoutMs?: number
+}
+
+/** A delegated turn that outlived the connection's deadline. */
+export class AcpTurnTimeoutError extends Error {
+  /** @param timeoutMs - the deadline the turn exceeded. */
+  constructor(timeoutMs: number) {
+    super(`the delegated turn exceeded its ${String(timeoutMs)}ms deadline`)
+    this.name = 'AcpTurnTimeoutError'
+  }
 }
 
 /** A buffered consumer of one turn's events. */
@@ -125,14 +163,59 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value as Record<string, unknown>
 }
 
-/** The text one `session/update` carries, when it carries any. */
+/** Parent-agent text and thoughts; delegated tool output is not its answer. */
 function updateEventOf(update: Record<string, unknown>): AcpTurnEvent | undefined {
   const kind = update.sessionUpdate
   if (kind !== 'agent_message_chunk' && kind !== 'agent_thought_chunk') return undefined
+  const parentToolCallId = asRecord(update._meta)?.['codebuddy.ai/parentToolCallId']
+  if (typeof parentToolCallId === 'string' && parentToolCallId.length > 0) return undefined
   const content = asRecord(update.content)
   const text = content?.text
   if (typeof text !== 'string' || text.length === 0) return undefined
   return kind === 'agent_message_chunk' ? { kind: 'text', text } : { kind: 'thought', text }
+}
+
+/**
+ * Read the catalog one `session/new` response advertises. The CLI reports the
+ * ids it accepts and the input capacity behind each of them, which is the only
+ * capacity a route that owns no endpoint can obtain.
+ * @param result - the response's result, as the CLI sent it.
+ * @returns one entry per advertised id, in the CLI's own order.
+ */
+function catalogOf(result: unknown): AcpCatalogModel[] {
+  const available = asRecord(asRecord(result)?.models)?.availableModels
+  if (!Array.isArray(available)) return []
+  const catalog: AcpCatalogModel[] = []
+  const seen = new Set<string>()
+  for (const entry of available) {
+    const record = asRecord(entry)
+    const id = record?.modelId
+    if (typeof id !== 'string' || id.length === 0 || seen.has(id)) continue
+    seen.add(id)
+    const name = record?.name
+    const capacity = asRecord(record?._meta)?.maxInputTokens
+    catalog.push({
+      id,
+      ...typeof name === 'string' && name.length > 0 ? { name } : {},
+      ...typeof capacity === 'number' && Number.isInteger(capacity) && capacity > 0 ? { contextWindow: capacity } : {},
+    })
+  }
+  return catalog
+}
+
+/**
+ * Read how one `session/prompt` response ended the turn.
+ * @param result - the response's result, as the CLI sent it.
+ * @returns the stop reason and, when the CLI reported one, its failure detail.
+ */
+function promptOutcomeOf(result: unknown): AcpPromptOutcome {
+  const record = asRecord(result)
+  const stopReason = record?.stopReason
+  const detail = asRecord(record?._meta)?.['codebuddy.ai/errorMessage']
+  return {
+    stopReason: typeof stopReason === 'string' && stopReason.length > 0 ? stopReason : 'unknown',
+    ...typeof detail === 'string' && detail.length > 0 ? { detail } : {},
+  }
 }
 
 /** The permission options one request offers, in the CLI's own order. */
@@ -204,6 +287,18 @@ export class AcpTransport {
   }
 
   /**
+   * Read the model catalog this CLI advertises, by opening the session whose
+   * answer carries it. The connection is the caller's to dispose afterwards: a
+   * discovery probe wants the catalog and nothing of the session's history.
+   * @param cwd - workspace the probe session runs in.
+   * @returns one entry per advertised model, with the capacity it discloses.
+   */
+  async describeModels(cwd: string): Promise<readonly AcpCatalogModel[]> {
+    await this.ensureStarted()
+    return catalogOf(await this.request('session/new', { cwd, mcpServers: [] }))
+  }
+
+  /**
    * Ask the child to resume a session a previous child created.
    * @param cwd - workspace the session runs in.
    * @param sessionId - CLI session id to load.
@@ -225,17 +320,36 @@ export class AcpTransport {
    * @param sessionId - the ACP session from {@link openSession}.
    * @param text - the prompt text this call carries.
    * @param signal - caller cancellation, forwarded as `session/cancel`.
-   * @returns the answer's incremental events, ending when the turn ends.
+   * @returns the answer's incremental events, and how the CLI ended the turn
+   *   once they are drained — `cancelled` and `refusal` are outcomes, not errors.
    */
-  async * prompt(sessionId: string, text: string, signal?: AbortSignal): AsyncIterable<AcpTurnEvent> {
+  async * prompt(
+    sessionId: string,
+    text: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<AcpTurnEvent, AcpPromptOutcome> {
     await this.ensureStarted()
     if (signal?.aborted === true) throw new Error('llm-cli: the request was aborted before the turn started')
     const turn = new TurnBuffer()
     this.turns.set(sessionId, turn)
     const cancel = (): void => { this.notify('session/cancel', { sessionId }) }
     signal?.addEventListener('abort', cancel, { once: true })
+    const deadline = this.options.turnTimeoutMs
+    // Cancelling asks the CLI to end its own loop; failing the turn is what ends
+    // the call when it does not, so the deadline never depends on the child.
+    const expiry = deadline === undefined || deadline <= 0 ? undefined : setTimeout(() => {
+      this.notify('session/cancel', { sessionId })
+      turn.fail(new AcpTurnTimeoutError(deadline))
+    }, deadline)
+    expiry?.unref()
+    let outcome: AcpPromptOutcome | undefined
     const response = this.request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] })
-      .then(() => { turn.end() })
+      .then((result) => {
+        // The outcome is set before the turn ends, so a drained turn always has
+        // one: ending first would let a caller read the turn as a plain stop.
+        outcome = promptOutcomeOf(result)
+        turn.end()
+      })
       .catch((error: unknown) => {
         turn.fail(error instanceof Error ? error : new Error(String(error)))
       })
@@ -246,7 +360,12 @@ export class AcpTransport {
         yield event
       }
       await response
+      // Unreachable through `turn.end`, which is only reached beside the
+      // assignment; a CLI that answered without a reason is a broken protocol,
+      // not a successful turn.
+      return outcome ?? { stopReason: 'unknown' }
     } finally {
+      if (expiry !== undefined) clearTimeout(expiry)
       signal?.removeEventListener('abort', cancel)
       if (this.turns.get(sessionId) === turn) this.turns.delete(sessionId)
     }

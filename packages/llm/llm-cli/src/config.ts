@@ -62,6 +62,13 @@ export const DEFAULT_MODEL_DISCOVERY_ARGS: readonly string[] = ['--help']
 export const DEFAULT_MODEL_DISCOVERY_TIMEOUT_MS = 15_000
 
 /**
+ * Default ceiling for one delegated `acp` turn. A turn is the CLI's whole agent
+ * loop, not one model round, so the bound is generous; it exists to end a run
+ * that never converges rather than to pace an ordinary one.
+ */
+export const DEFAULT_TURN_TIMEOUT_MS = 600_000
+
+/**
  * Plugin config, validated by the same-named schemastery schema and doubling as
  * the `llm-cli` user-settings section shape. Every field is optional in yml: a
  * missing command falls back to `codebuddy`, and an empty section still
@@ -78,6 +85,12 @@ export interface Config {
   modelDiscoveryArgs: Volatile<string[]>
   /** Hard ceiling in milliseconds for one model-discovery child. */
   modelDiscoveryTimeoutMs: Volatile<number>
+  /**
+   * Ceiling in milliseconds for one delegated `acp` turn, or `0` for none. The
+   * CLI runs its whole agent loop inside one call, so an unbounded turn is a
+   * run that can hold the conversation open for as long as it keeps working.
+   */
+  turnTimeoutMs: Volatile<number>
   /** Advisory model ids offered beside the discovered ones. */
   models: Volatile<CliCatalogModel[]>
   /** Child working directory; when absent, a persistent session's workspace wins. */
@@ -135,6 +148,7 @@ export function plainOptions(config: Config): Options {
 const catalogModel: z<CliCatalogModel> = z.object({
   id: z.string().required(),
   name: z.string(),
+  contextWindow: z.natural().min(1),
 })
 
 /** Fields shared by the plugin entry config and the `llm-cli` settings section. */
@@ -145,6 +159,7 @@ export const cliConfigFields = {
   modelDiscoveryArgs: z.array(z.string()).default([...DEFAULT_MODEL_DISCOVERY_ARGS]).volatile(),
   modelDiscoveryTimeoutMs: z.number().min(Number.MIN_VALUE).max(MAX_TIMER_DELAY_MS)
     .default(DEFAULT_MODEL_DISCOVERY_TIMEOUT_MS).volatile(),
+  turnTimeoutMs: z.number().min(0).max(MAX_TIMER_DELAY_MS).default(DEFAULT_TURN_TIMEOUT_MS).volatile(),
   models: z.array(catalogModel).default([]).volatile(),
   cwd: z.string().volatile(),
   env: z.dict(z.string()).default({}).volatile(),
@@ -190,18 +205,27 @@ function resolveModels(models: readonly CliCatalogModel[] | undefined): CliCatal
     if (model.name !== undefined && model.name.length === 0) {
       throw new Error(`llm-cli: catalog model "${model.id}" has an empty name`)
     }
+    if (model.contextWindow !== undefined
+      && (!Number.isInteger(model.contextWindow) || model.contextWindow <= 0)) {
+      throw new Error(`llm-cli: catalog model "${model.id}" contextWindow must be a positive whole number`)
+    }
     if (seen.has(model.id)) throw new Error(`llm-cli: duplicate catalog model "${model.id}"`)
     seen.add(model.id)
-    return model.name === undefined ? { id: model.id } : { id: model.id, name: model.name }
+    return {
+      id: model.id,
+      ...model.name === undefined ? {} : { name: model.name },
+      ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
+    }
   })
 }
 
 /**
  * Merge what the CLI last advertised with the ids the deployment declared. The
  * advertised order leads — it is the CLI's own listing, which is what a picker
- * should show — and a declared entry keeps its own content there, so a curated
- * label is not replaced by the bare id. Declared ids the CLI did not report
- * follow, so an advisory id stays selectable.
+ * should show — and a declared entry keeps the fields it declares there, so a
+ * curated label is not replaced by the bare id, while everything it leaves out
+ * still comes from the CLI. Declared ids the CLI did not report follow, so an
+ * advisory id stays selectable.
  * @param configured - catalog entries the deployment declared.
  * @param discovered - entries the last probe of the CLI reported.
  * @returns one entry per id, advertised order first.
@@ -216,7 +240,14 @@ export function mergeCatalog(
   for (const model of [...discovered, ...configured]) {
     if (seen.has(model.id)) continue
     seen.add(model.id)
-    merged.push(declared.get(model.id) ?? model)
+    const declaredEntry = declared.get(model.id)
+    const name = declaredEntry?.name ?? model.name
+    const contextWindow = declaredEntry?.contextWindow ?? model.contextWindow
+    merged.push({
+      id: model.id,
+      ...name === undefined ? {} : { name },
+      ...contextWindow === undefined ? {} : { contextWindow },
+    })
   }
   return merged
 }
@@ -249,6 +280,12 @@ export function resolveAdapterOptions(config: Options, defaultCwd: string): Reso
     config.modelDiscoveryTimeoutMs ?? DEFAULT_MODEL_DISCOVERY_TIMEOUT_MS,
     'modelDiscoveryTimeoutMs',
   )
+  const turnTimeoutMs = config.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS
+  // Zero is the documented way to ask for no ceiling; anything else must be a
+  // bound a timer can hold.
+  if (!Number.isFinite(turnTimeoutMs) || turnTimeoutMs < 0 || turnTimeoutMs > MAX_TIMER_DELAY_MS) {
+    throw new Error(`llm-cli: turnTimeoutMs must be 0 or a positive finite number no greater than ${String(MAX_TIMER_DELAY_MS)}`)
+  }
   // An empty sessionIdArg is the documented way to ask for stateless runs.
   const sessionIdArg = config.sessionIdArg ?? DEFAULT_SESSION_ID_ARG
   const maxTurns = config.maxTurns
@@ -273,6 +310,7 @@ export function resolveAdapterOptions(config: Options, defaultCwd: string): Reso
     ...maxTurns === undefined ? {} : { maxTurns },
     ...effort === undefined ? {} : { effort },
     disposeGraceMs,
+    turnTimeoutMs,
     acpArgv: [command, ...acpArgs],
     discoveryArgv: [command, ...discoveryArgs],
     discoveryTimeoutMs,

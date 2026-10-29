@@ -10,6 +10,7 @@ import {
   DEFAULT_MODEL_DISCOVERY_TIMEOUT_MS,
   DEFAULT_PERMISSION_MODE,
   DEFAULT_SESSION_ID_ARG,
+  DEFAULT_TURN_TIMEOUT_MS,
   mergeCatalog,
   plainOptions,
   resolveAdapterOptions,
@@ -52,6 +53,7 @@ describe('resolveAdapterOptions defaults', () => {
       transport: DEFAULT_TRANSPORT,
       permissionMode: DEFAULT_PERMISSION_MODE,
       disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
+      turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS,
       acpArgv: [DEFAULT_COMMAND, ...DEFAULT_ACP_ARGS],
       discoveryArgv: [DEFAULT_COMMAND, ...DEFAULT_MODEL_DISCOVERY_ARGS],
       discoveryTimeoutMs: DEFAULT_MODEL_DISCOVERY_TIMEOUT_MS,
@@ -185,6 +187,22 @@ describe('mergeCatalog', () => {
 
     expect(merged).toEqual([{ id: 'a' }])
   })
+
+  it('keeps a declared field and still adopts the capacity the CLI disclosed', () => {
+    // A curated label must not cost the route the capacity compaction prices
+    // with, so a declared entry overrides only the fields it actually declares.
+    expect(mergeCatalog(
+      [{ id: 'house', name: 'House' }],
+      [{ id: 'house', name: 'House at the endpoint', contextWindow: 200_000 }],
+    )).toEqual([{ id: 'house', name: 'House', contextWindow: 200_000 }])
+  })
+
+  it('lets a declared capacity outrank the one the CLI disclosed', () => {
+    expect(mergeCatalog(
+      [{ id: 'house', contextWindow: 64_000 }],
+      [{ id: 'house', contextWindow: 200_000 }],
+    )).toEqual([{ id: 'house', contextWindow: 64_000 }])
+  })
 })
 
 describe('Config schema', () => {
@@ -196,6 +214,7 @@ describe('Config schema', () => {
       acpArgs: [...DEFAULT_ACP_ARGS],
       modelDiscoveryArgs: [...DEFAULT_MODEL_DISCOVERY_ARGS],
       modelDiscoveryTimeoutMs: DEFAULT_MODEL_DISCOVERY_TIMEOUT_MS,
+      turnTimeoutMs: DEFAULT_TURN_TIMEOUT_MS,
       models: [],
       cwd: undefined,
       env: {},
@@ -207,6 +226,17 @@ describe('Config schema', () => {
       effort: undefined,
       disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
     })
+  })
+
+  it('accepts a zero turn deadline as the way to ask for none', () => {
+    // A delegated turn is the CLI's whole agent loop, so "no ceiling" has to be
+    // expressible; zero is that statement, not a one-millisecond ceiling.
+    expect(resolveAdapterOptions({ turnTimeoutMs: 0 }, '/fallback').turnTimeoutMs).toBe(0)
+  })
+
+  it('refuses a turn deadline a timer cannot hold', () => {
+    expect(() => resolveAdapterOptions({ turnTimeoutMs: -1 }, '/fallback')).toThrow(/turnTimeoutMs/)
+    expect(() => resolveAdapterOptions({ turnTimeoutMs: MAX_TIMER_DELAY_MS + 1 }, '/fallback')).toThrow(/turnTimeoutMs/)
   })
 
   it('reads each reference separately, so one section cannot leak into another', () => {

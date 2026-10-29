@@ -72,17 +72,23 @@ Every field is optional in YAML and defaults to CodeBuddy. A missing section sti
 `transport` decides how a call reaches the CLI, and the two modes differ in what they pay per call:
 
 - `print` (the default) starts the arguments in `args` for that call and reads its `stream-json` stdout. `--include-partial-messages` is what makes the answer arrive while the CLI is still generating it; without it the caller waits out the whole run and then receives one message.
-- `acp` starts one child per route with `acpArgs` and prompts a session on it, so the CLI's cold start is paid once rather than once per call. The conversation's ACP session owns its history, and the CLI's own thinking arrives as its own block instead of staying inside the child.
+- `acp` starts one child per workspace with `acpArgs` and prompts a session on it, so the CLI's cold start is paid once rather than once per call. The child starts in the conversation's workspace, because the CLI takes its workspace from the directory it was started in, not from `session/new`. The conversation's ACP session owns its history, the CLI's own thinking arrives as its own block instead of staying inside the child, and the stop reason it reports decides the call's terminal: a turn it cancelled or refused is a failure, not an empty answer.
+
+ACP forwards only the parent agent's text and thoughts. CodeBuddy chunks marked with `_meta['codebuddy.ai/parentToolCallId']` belong to a delegated tool and do not become the parent answer. Alternating text and reasoning blocks retain only their own deltas. A complete text message does not end the call: the response to `session/prompt`, with its `stopReason`, does.
 
 A conversation outlives the child that served it: changing the model replaces the process, because the model rides its argv. The route therefore remembers which CLI session each conversation owns, and a new child resumes it with `session/load` instead of starting empty — a resumed harness session continues its own conversation the same way. When the CLI refuses the load, or keeps no session store at all, the call carries the conversation with it: the prior turns are flattened ahead of the newest input, so the CLI never answers as if the conversation had just begun.
 
 ### Bounding the delegated loop
 
-`tools`, `maxTurns`, and `effort` reach the CLI's own agent loop, which is otherwise unbounded from here when it is. An empty `tools` disables every built-in tool, which is the closest this route comes to a bare model call: the CLI answers without running anything. `maxTurns` caps the CLI's agentic turns, and `effort` names the reasoning level it forwards. Leaving any of the three out leaves the CLI's own default in charge — which is the right choice unless the deployment has a reason to want otherwise.
+`tools`, `maxTurns`, and `effort` reach the CLI's own agent loop on both transports. An empty `tools` disables every built-in tool, which is the closest this route comes to a bare model call: the CLI answers without running anything. `maxTurns` caps the CLI's agentic turns inside one call, and `effort` names the reasoning level it forwards. Leaving any of the three out leaves the CLI's own default in charge — which is the right choice unless the deployment has a reason to want otherwise.
+
+`turnTimeoutMs` is the bound this route keeps for itself. A turn is the CLI's whole agent loop, not one model round, so a run that never converges would hold the conversation open for as long as the CLI keeps working, with nothing on the wire to say it is stuck. On expiry the route cancels the turn and reports `CLI_TURN_TIMEOUT`, naming the deadline it exceeded; `0` disables the ceiling. The two bounds compose: `maxTurns` ends the loop inside the CLI, and `turnTimeoutMs` ends the call even when the CLI cannot.
 
 ### Model ids
 
-The plugin offers the CLI's own catalog rather than shipping one: it runs `modelDiscoveryArgs` through the subprocess seam and parses the ids the CLI lists for its `--model` option. The `models` list is an advisory catalog for deployments that cannot interrogate the CLI; discovered ids come first and configured ids the CLI did not report follow, each once.
+The plugin offers the CLI's own catalog rather than shipping one. An `acp` route asks the handshake: the session a CLI opens reports the ids it accepts together with each model's input capacity, which is the only capacity a route that owns no endpoint can obtain. A `print` route runs `modelDiscoveryArgs` through the subprocess seam and parses the ids the CLI lists for its `--model` option, which carries no capacity. The `models` list is an advisory catalog for deployments that cannot interrogate the CLI; discovered entries come first and configured ids the CLI did not report follow, each once, and a configured entry overrides only the fields it declares.
+
+Compaction and a model switch both refuse to guess capacity: `compaction-basic` fails a switch with `no context capacity` until the routed model reports one. A model the CLI advertises is priced from the CLI's own figure, and one it does not advertise needs `contextWindow` on its catalog entry.
 
 ### Sessions
 

@@ -24,8 +24,8 @@ import type {
   StreamChunk,
 } from '@deepseek-ai/dsh-llm'
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import { AcpTransport } from './acp.ts'
-import type { AcpSessionLease, AcpTransportOptions, AcpTurnEvent } from './acp.ts'
+import { AcpTransport, AcpTurnTimeoutError } from './acp.ts'
+import type { AcpPromptOutcome, AcpSessionLease, AcpTransportOptions, AcpTurnEvent } from './acp.ts'
 import { parseCliLine } from './wire.ts'
 import { conversationRecap, flattenConversation, systemTextOf, trailingUserText } from './translate.ts'
 
@@ -35,6 +35,12 @@ export interface CliCatalogModel {
   id: string
   /** Selector label; defaults to {@link id}. */
   name?: string
+  /**
+   * Input capacity this id accepts, when the deployment knows it. Compaction and
+   * switching need it, and a route that owns no endpoint cannot derive it; the
+   * ACP handshake supplies the CLI's own figure where it reports one.
+   */
+  contextWindow?: number
 }
 
 /** The CLI permission modes its non-interactive print command accepts. */
@@ -104,6 +110,12 @@ export interface CliConnectionOptions {
   effort?: CodeBuddyEffort
   /** Grace in milliseconds for child process-tree termination. */
   disposeGraceMs: number
+  /**
+   * Ceiling in milliseconds for one delegated `acp` turn, or `0` for none. The
+   * CLI runs a whole agent loop inside one call, so without a ceiling a run that
+   * never converges holds the turn open for as long as the CLI keeps working.
+   */
+  turnTimeoutMs: number
   /** Executable and arguments that start the CLI as a long-lived ACP agent. */
   acpArgv: readonly string[]
   /** Executable and arguments that print the CLI's supported model ids. */
@@ -126,6 +138,18 @@ export interface CliAdapterOptions {
 
 /** Failure code reported when the child cannot be started or breaks its protocol. */
 const CLI_START_FAILED_CODE = 'CLI_START_FAILED'
+
+/** Failure code reported for a turn the CLI cancelled on its own. */
+const CLI_TURN_CANCELLED_CODE = 'CLI_TURN_CANCELLED'
+
+/** Failure code reported for a turn the CLI refused to answer. */
+const CLI_TURN_REFUSED_CODE = 'CLI_TURN_REFUSED'
+
+/** Failure code reported for a turn that ended for a reason this route cannot name. */
+const CLI_TURN_UNKNOWN_CODE = 'CLI_TURN_FAILED'
+
+/** Failure code reported for a delegated turn that outlived its deadline. */
+const CLI_TURN_TIMEOUT_CODE = 'CLI_TURN_TIMEOUT'
 
 /** Render one terminal failure chunk, classified as aborted when the signal fired. */
 function failureChunk(message: string, code: string, signal?: AbortSignal): StreamChunk {
@@ -187,8 +211,12 @@ export class CliAdapter extends LlmAdapter {
   private readonly options: CliAdapterOptions['options']
   private readonly spawn: CliAdapterOptions['spawn']
   private readonly resolveSessionCwd: NonNullable<CliAdapterOptions['resolveSessionCwd']>
-  /** The long-lived ACP connection, replaced when what starts its child changes. */
-  private acp: { signature: string; transport: AcpTransport } | undefined
+  /**
+   * The long-lived ACP connection of each workspace, replaced when what starts
+   * its child changes. The CLI takes its workspace from the directory the child
+   * starts in rather than from `session/new`, so a workspace needs its own child.
+   */
+  private readonly acp = new Map<string, { signature: string; transport: AcpTransport }>()
   /**
    * CLI sessions this route opened, by harness conversation. Held here rather
    * than in the transport because a replaced child must be able to resume them:
@@ -219,7 +247,16 @@ export class CliAdapter extends LlmAdapter {
   }
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
-    return Promise.resolve({ provider, id: model, name: model })
+    const entry = this.options().models.find(candidate => candidate.id === model)
+    const contextWindow = entry?.contextWindow
+    return Promise.resolve({
+      provider,
+      id: model,
+      name: entry?.name ?? model,
+      // Capacity is the one fact a delegated route cannot infer: compaction and
+      // a model switch both refuse to guess it, so only a known one is reported.
+      ...contextWindow === undefined ? {} : { context: { contextWindow } },
+    })
   }
 
   async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
@@ -439,7 +476,7 @@ export class CliAdapter extends LlmAdapter {
     cwd: string,
     signal: AbortSignal | undefined,
   ): AsyncIterable<StreamChunk> {
-    const transport = this.acpTransport(facts, options.model)
+    const transport = this.acpTransport(facts, options.model, cwd)
     // A stateless caller owns no conversation, so its session is a throwaway:
     // reusing one would hand the next title the previous title's history.
     this.statelessCalls += 1
@@ -462,31 +499,41 @@ export class CliAdapter extends LlmAdapter {
 
     let kind: AcpTurnEvent['kind'] | undefined
     let index = -1
-    let text = ''
-    let reasoning = ''
+    let blockText = ''
     try {
       // The CLI reports thinking and answer text as separate streams; a block
       // ends where the next stream takes over, and the last one at the end.
-      for await (const event of transport.prompt(session, promptText, signal)) {
+      const events = transport.prompt(session, promptText, signal)
+      let step: IteratorResult<AcpTurnEvent, AcpPromptOutcome> = await events.next()
+      while (!step.done) {
+        const event = step.value
         if (kind !== event.kind) {
-          if (kind !== undefined) yield { type: 'block-end', index, block: answerBlock(kind, kind === 'text' ? text : reasoning) }
+          if (kind !== undefined) yield { type: 'block-end', index, block: answerBlock(kind, blockText) }
           kind = event.kind
+          blockText = ''
           index += 1
           yield { type: 'block-start', index, blockType: blockTypeOf(kind) }
         }
+        blockText += event.text
         if (event.kind === 'text') {
-          text += event.text
           yield { type: 'text-delta', index, text: event.text }
         } else {
-          reasoning += event.text
           yield { type: 'reasoning-delta', index, text: event.text }
         }
+        step = await events.next()
       }
-      if (kind !== undefined) yield { type: 'block-end', index, block: answerBlock(kind, kind === 'text' ? text : reasoning) }
-      yield { type: 'finish', reason: { kind: 'stop' } }
+      if (kind !== undefined) yield { type: 'block-end', index, block: answerBlock(kind, blockText) }
+      // The prompt's own result says how the CLI ended the turn. A turn the CLI
+      // cancelled — a refused tool call does that — answers with no text, so
+      // reporting it as a stop would hand back an empty reply as a success.
+      yield finishOfAcpOutcome(step.value, signal)
     } catch (error: unknown) {
       if (signal?.aborted === true) {
         yield failureChunk('llm-cli: the CLI run was aborted', 'ABORTED', signal)
+        return
+      }
+      if (error instanceof AcpTurnTimeoutError) {
+        yield failureChunk(`llm-cli: ${error.message}`, CLI_TURN_TIMEOUT_CODE, signal)
         return
       }
       const message = error instanceof Error ? error.message : String(error)
@@ -495,50 +542,83 @@ export class CliAdapter extends LlmAdapter {
   }
 
   /**
-   * Release the route's long-lived child, if one was ever started. The plugin
-   * calls this from the effect that registered the route, so unloading the
-   * route unloads its child rather than leaving it to outlive the composition.
-   * @returns once the child's process tree is gone.
+   * Release the route's long-lived children, if any were ever started. The
+   * plugin calls this from the effect that registered the route, so unloading
+   * the route unloads its children rather than leaving them to outlive the
+   * composition.
+   * @returns once every child's process tree is gone.
    */
   async dispose(): Promise<void> {
-    const transport = this.acp?.transport
-    this.acp = undefined
-    if (transport !== undefined) await transport.dispose()
+    const transports = [...this.acp.values()].map(entry => entry.transport)
+    this.acp.clear()
+    await Promise.all(transports.map(transport => transport.dispose()))
   }
 
   /**
-   * The ACP connection these facts describe, started on first use and replaced
-   * when the facts that started it change. The model rides the process: the CLI
-   * takes it as a launch argument, so one child serves one model.
+   * The ACP connection one workspace runs on, started on first use and replaced
+   * when the facts that started it change. The model and the workspace ride the
+   * process: the CLI takes both as launch facts, so one child serves one model
+   * in one workspace.
    * @param facts - resolved executable facts for this operation.
    * @param model - model id this call selected.
+   * @param cwd - workspace the conversation's session runs in.
    * @returns the connection to prompt on.
    */
-  private acpTransport(facts: CliConnectionOptions, model: string): AcpTransport {
+  private acpTransport(facts: CliConnectionOptions, model: string, cwd: string): AcpTransport {
     const argv = [
       ...facts.acpArgv,
       '--permission-mode', facts.permissionMode,
       ...facts.tools === undefined ? [] : ['--tools', facts.tools],
+      // The CLI bounds its own agent loop only when told to: without this it
+      // runs as many tool rounds as it likes inside a single model call.
+      ...facts.maxTurns === undefined ? [] : ['--max-turns', String(facts.maxTurns)],
       ...facts.effort === undefined ? [] : ['--effort', facts.effort],
       '--model', model,
     ]
-    const signature = JSON.stringify([argv, facts.cwd, facts.env, facts.disposeGraceMs])
-    if (this.acp?.signature === signature) return this.acp.transport
-    const previous = this.acp?.transport
+    const signature = JSON.stringify([argv, facts.env, facts.disposeGraceMs])
+    const existing = this.acp.get(cwd)
+    if (existing?.signature === signature) return existing.transport
     const selectPermission = selectPermissionFor(facts.permissionMode)
     const transport = new AcpTransport({
       spawn: this.spawn,
       argv,
-      cwd: facts.cwd,
+      cwd,
       env: facts.env,
       graceMs: facts.disposeGraceMs,
+      ...facts.turnTimeoutMs <= 0 ? {} : { turnTimeoutMs: facts.turnTimeoutMs },
       ...selectPermission === undefined ? {} : { selectPermission },
     })
-    this.acp = { signature, transport }
+    this.acp.set(cwd, { signature, transport })
     // The replaced child only has its own exit left; the seam owns escalation,
     // and a disposal that fails to observe it is that seam's to report.
-    void previous?.dispose().catch(() => undefined)
+    void existing?.transport.dispose().catch(() => undefined)
     return transport
+  }
+}
+
+/**
+ * The terminal this route reports for how the CLI ended one delegated turn. The
+ * stop reason is the only thing that separates a turn the CLI abandoned from a
+ * short reply, so every reason but a completed turn is reported as a failure.
+ * @param outcome - stop reason the CLI reported for the turn.
+ * @param signal - caller cancellation, which outranks the CLI's own reason.
+ * @returns the terminal chunk for the call.
+ */
+function finishOfAcpOutcome(outcome: AcpPromptOutcome, signal?: AbortSignal): StreamChunk {
+  const detail = outcome.detail === undefined ? '' : ` (${outcome.detail})`
+  switch (outcome.stopReason) {
+    case 'end_turn':
+      return { type: 'finish', reason: { kind: 'stop' } }
+    case 'max_tokens':
+    case 'max_turn_requests':
+    case 'max_turns':
+      return { type: 'finish', reason: { kind: 'max-tokens' } }
+    case 'cancelled':
+      return failureChunk(`llm-cli: the CLI cancelled the turn${detail}`, CLI_TURN_CANCELLED_CODE, signal)
+    case 'refusal':
+      return failureChunk(`llm-cli: the CLI refused the turn${detail}`, CLI_TURN_REFUSED_CODE, signal)
+    default:
+      return failureChunk(`llm-cli: the CLI ended the turn with stop reason "${outcome.stopReason}"${detail}`, CLI_TURN_UNKNOWN_CODE, signal)
   }
 }
 

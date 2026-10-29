@@ -52,7 +52,7 @@ export type {
   CodeBuddyPermissionMode,
 } from './adapter.ts'
 export { AcpTransport } from './acp.ts'
-export type { AcpPermissionOption, AcpTransportOptions, AcpTurnEvent } from './acp.ts'
+export type { AcpCatalogModel, AcpPermissionOption, AcpPromptOutcome, AcpTransportOptions, AcpTurnEvent } from './acp.ts'
 export {
   Config,
   DEFAULT_ARGS,
@@ -134,9 +134,19 @@ export function apply(ctx: Context, config: Config): void {
       timeoutMs: facts.discoveryTimeoutMs,
       configured: current.models ?? [],
       spawn: spec => ctx.subprocess.spawn(spec),
+      // A route that reaches the CLI over ACP asks the handshake instead: it is
+      // the only listing that also reports each model's input capacity, which
+      // compaction needs before it can price a model switch.
+      ...facts.transport === 'acp'
+        ? { acp: { argv: facts.acpArgv, env: facts.env, graceMs: facts.disposeGraceMs } }
+        : {},
       ...signal === undefined ? {} : { signal },
     })
-    advertised = models.map(model => (model.name === undefined ? { id: model.id } : { id: model.id, name: model.name }))
+    advertised = models.map(model => ({
+      id: model.id,
+      ...model.name === undefined ? {} : { name: model.name },
+      ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
+    }))
     return models
   }
   // One probe per composition, rather than only when a Models page asks: the

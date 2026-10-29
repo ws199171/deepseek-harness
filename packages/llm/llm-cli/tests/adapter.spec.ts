@@ -150,6 +150,7 @@ const FACTS: CliConnectionOptions = {
   permissionMode: 'bypassPermissions',
   acpArgv: ['codebuddy', '--acp'],
   disposeGraceMs: 3_000,
+  turnTimeoutMs: 600_000,
   discoveryArgv: ['codebuddy', '--help'],
   discoveryTimeoutMs: 15_000,
   models: [],

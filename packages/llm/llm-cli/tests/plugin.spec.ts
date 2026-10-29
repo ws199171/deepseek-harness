@@ -250,6 +250,45 @@ describe('llm-cli ACP transport', () => {
     ])
   })
 
+  it('excludes subagent conclusions from the parent answer', async () => {
+    const { ctx } = await boot({ config: { ...FAKE_ACP_CLI, env: { FAKE_ACP_SUBAGENT: '1' } } })
+
+    const chunks = await chunksOf(ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> })
+    expect(chunks.filter(chunk => chunk.type === 'block-end').map(chunk => chunk.block)).toEqual([
+      { type: 'reasoning', text: 'thinking' },
+      { type: 'text', text: 'call:1 session-1 hi' },
+    ])
+    expect(chunks.filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text).join(''))
+      .toBe('call:1 session-1 hi')
+    expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+  })
+
+  it('keeps repeated reasoning and answer blocks independent', async () => {
+    const { ctx } = await boot({ config: { ...FAKE_ACP_CLI, env: { FAKE_ACP_REPEAT_BLOCKS: '1' } } })
+
+    const chunks = await chunksOf(ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> })
+    expect(chunks.filter(chunk => chunk.type === 'block-end').map(chunk => chunk.block)).toEqual([
+      { type: 'reasoning', text: 'thinking' },
+      { type: 'text', text: 'call:1 session-1 hi' },
+      { type: 'reasoning', text: 'follow-up thinking' },
+      { type: 'text', text: 'final answer' },
+    ])
+    expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+  })
+
+  it('requires a prompt response even after a complete answer text', async () => {
+    const { ctx } = await boot({
+      config: { ...FAKE_ACP_CLI, env: { FAKE_ACP_STALL: '1', FAKE_ACP_STALL_TEXT: '1' }, turnTimeoutMs: 60 },
+    })
+
+    const chunks = await chunksOf(ctx)
+    expect(chunks.filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text).join(''))
+      .toBe('answer before completion')
+    expect(chunks.at(-1)).toMatchObject({
+      type: 'finish', reason: { kind: 'error', failure: { code: 'CLI_TURN_TIMEOUT' } },
+    })
+  })
+
   it('serves the next call of the same conversation from that child and session', async () => {
     const { ctx } = await boot({ config: FAKE_ACP_CLI })
     const sessionId = 'known' as NonNullable<GenerateOptions['sessionId']>
@@ -295,6 +334,107 @@ describe('llm-cli ACP transport', () => {
       messages: [user('first'), assistant('answer one'), user('second')],
     })).filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text).join('')
     expect(text).toBe('call:1 session-1 User: first\n\nAssistant: answer one\n\nUser: second')
+  })
+
+  it('offers the catalog the CLI reports over ACP, capacity included', async () => {
+    const { ctx } = await boot({ config: FAKE_ACP_CLI })
+
+    // Discovery asks the handshake rather than the listing command: the session
+    // a CLI opens carries each model's input capacity, which is what compaction
+    // and a model switch price their budgets with.
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if ((await ctx.llm.listModels(PROVIDER)).some(model => model.id === 'acp-one')) break
+      await new Promise(resolveWait => setTimeout(resolveWait, 20))
+    }
+    expect((await ctx.llm.listModels(PROVIDER)).map(model => model.id)).toEqual(['acp-one', 'acp-two'])
+    await expect(ctx.llm.resolveModelInfo(PROVIDER, 'acp-one'))
+      .resolves.toMatchObject({ name: 'ACP One', context: { contextWindow: 200_000 } })
+    // A model the CLI lists without a capacity keeps none: the route never
+    // invents a window, because every compaction budget would be priced from it.
+    await expect(ctx.llm.resolveModelInfo(PROVIDER, 'acp-two'))
+      .resolves.toEqual({ provider: PROVIDER, id: 'acp-two', name: 'acp-two' })
+  })
+
+  it('ends a delegated turn that outlives its deadline', async () => {
+    // The CLI runs its whole agent loop inside one prompt, so a run that never
+    // converges would otherwise hold the turn open for as long as it breathes.
+    const { ctx } = await boot({
+      config: { ...FAKE_ACP_CLI, env: { FAKE_ACP_STALL: '1' }, turnTimeoutMs: 60 },
+    })
+
+    expect(await chunksOf(ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> })).toEqual([{
+      type: 'finish',
+      reason: {
+        kind: 'error',
+        failure: {
+          message: 'llm-cli: the delegated turn exceeded its 60ms deadline',
+          code: 'CLI_TURN_TIMEOUT',
+        },
+      },
+    }])
+  })
+
+  it('bounds the delegated agent loop with the configured turn cap', async () => {
+    // `--max-turns` is what ends a runaway loop inside the CLI; without it the
+    // deadline is the only thing left, and it costs the whole turn's work.
+    const { ctx } = await boot({ config: { ...FAKE_ACP_CLI, maxTurns: 3, env: { FAKE_ACP_REPORT_ARGV: '1' } } })
+
+    const text = (await chunksOf(ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> }))
+      .filter(chunk => chunk.type === 'text-delta')
+      .map(chunk => chunk.text)
+      .join('')
+    expect(text).toContain('--max-turns 3')
+  })
+
+  it('runs the child in the workspace the conversation resolves', async () => {
+    // The CLI takes its workspace from the directory it starts in, not from
+    // `session/new`, so a child started in the configured directory would edit
+    // the wrong tree for the whole conversation.
+    const { ctx, sessionCwd } = await boot({
+      sessions: true,
+      config: { ...FAKE_ACP_CLI, env: { FAKE_ACP_REPORT_CWD: '1' } },
+    })
+
+    const text = (await chunksOf(ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> }))
+      .filter(chunk => chunk.type === 'text-delta')
+      .map(chunk => chunk.text)
+      .join('')
+    // A macOS temp directory reaches the child under its /private spelling.
+    expect(text).toContain(`cwd:${await realpath(sessionCwd!)}`)
+  })
+
+  it('reports a turn the CLI cancelled as a failure instead of an empty answer', async () => {
+    // A refused tool call ends the turn with no answer text at all; a stop that
+    // is reported as success is what makes a broken run look like a short reply.
+    const { ctx } = await boot({
+      config: {
+        ...FAKE_ACP_CLI,
+        env: { FAKE_ACP_STOP: 'cancelled', FAKE_ACP_ERROR: 'Permission denied for tool(s): unknown' },
+      },
+    })
+
+    const chunks = await chunksOf(ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> })
+
+    expect(chunks.at(-1)).toEqual({
+      type: 'finish',
+      reason: {
+        kind: 'error',
+        failure: {
+          message: 'llm-cli: the CLI cancelled the turn (Permission denied for tool(s): unknown)',
+          code: 'CLI_TURN_CANCELLED',
+        },
+      },
+    })
+  })
+
+  it('reports a turn the CLI refused, and a reason it cannot name, as failures', async () => {
+    const refusal = await boot({ config: { ...FAKE_ACP_CLI, env: { FAKE_ACP_STOP: 'refusal' } } })
+    expect((await chunksOf(refusal.ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> })).at(-1))
+      .toMatchObject({ type: 'finish', reason: { kind: 'error', failure: { code: 'CLI_TURN_REFUSED' } } })
+
+    const unknown = await boot({ config: { ...FAKE_ACP_CLI, env: { FAKE_ACP_STOP: 'something-new' } } })
+    expect((await chunksOf(unknown.ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> })).at(-1))
+      .toMatchObject({ type: 'finish', reason: { kind: 'error', failure: { code: 'CLI_TURN_FAILED' } } })
   })
 
   it('gives every stateless call its own session', async () => {
@@ -350,6 +490,18 @@ describe('llm-cli conversation', () => {
     const headless = await boot()
     expect(await answer(headless.ctx, { sessionId: 'known' as NonNullable<GenerateOptions['sessionId']> }))
       .toBe(process.cwd())
+  })
+
+  it('reports the capacity a catalog entry declares', async () => {
+    // A route that reaches the CLI without a catalog, or with ids the CLI does
+    // not advertise, can only price compaction from what the deployment states.
+    const { ctx } = await boot({
+      config: { ...FAKE_CLI, models: [{ id: 'house', contextWindow: 64_000 }] },
+    })
+
+    await expect(ctx.llm.resolveModelInfo(PROVIDER, 'house')).resolves.toMatchObject({
+      context: { contextWindow: 64_000 },
+    })
   })
 
   it('reports an unstartable CLI as a request failure rather than throwing', async () => {
